@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: job-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scheduler
+  template:
+    metadata:
+      labels:
+        app: scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: registry.example.com/job-scheduler-backend:latest
+          command: ["python", "-m", "app.services.scheduler_loop"]
+          envFrom:
+            - secretRef:
+                name: job-scheduler-secret
+            - configMapRef:
+                name: job-scheduler-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: job-scheduler
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: registry.example.com/job-scheduler-backend:latest
+          command: ["python", "-m", "app.services.worker_loop"]
+          env:
+            - name: WORKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: job-scheduler-secret
+            - configMapRef:
+                name: job-scheduler-config
