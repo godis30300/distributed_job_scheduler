@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-frontend
+  namespace: job-scheduler
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: django-frontend
+  template:
+    metadata:
+      labels:
+        app: django-frontend
+    spec:
+      containers:
+        - name: django-frontend
+          image: registry.example.com/job-scheduler/django-frontend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DEBUG
+              value: "False"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: django-frontend-secret
+                  key: secret-key
+            - name: ALLOWED_HOSTS
+              value: "scheduler.example.com"
+            - name: BACKEND_API_URL
+              value: "http://fastapi-backend:8000/api"
+            - name: DEMO_MODE
+              value: "False"
+          readinessProbe:
+            httpGet:
+              path: /login/
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /login/
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-frontend
+  namespace: job-scheduler
+spec:
+  selector:
+    app: django-frontend
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: django-frontend-ingress
+  namespace: job-scheduler
+spec:
+  rules:
+    - host: scheduler.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: django-frontend
+                port:
+                  number: 80

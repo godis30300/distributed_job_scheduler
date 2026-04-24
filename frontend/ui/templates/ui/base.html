@@ -1,0 +1,37 @@
+{% load static %}
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Distributed Job Scheduler{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'ui/styles.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Distributed Job Scheduler</div>
+    <nav class="nav">
+      {% if request.session.token %}
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <a href="{% url 'job_list' %}">Jobs</a>
+        <a href="{% url 'job_runs' %}">Runs</a>
+        <a href="{% url 'health' %}">Health</a>
+        <a href="{% url 'logout' %}">Logout</a>
+      {% else %}
+        <a href="{% url 'login' %}">Login</a>
+        <a href="{% url 'register' %}">Register</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="container">
+    {% if DEMO_MODE %}
+      <div class="alert info">目前為 Demo Mode，UI 會使用 session mock data；串接 FastAPI 時把 .env 的 DEMO_MODE 改成 False。</div>
+    {% endif %}
+    {% for message in messages %}
+      <div class="alert {{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

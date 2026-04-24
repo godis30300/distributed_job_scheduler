@@ -1,0 +1,15 @@
+{% extends 'ui/base.html' %}
+{% block title %}{% if mode == 'create' %}Create Job{% else %}Edit Job{% endif %}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>{% if mode == 'create' %}建立 Job{% else %}編輯 Job{% endif %}</h1>
+  <form method="post" class="form two-col">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="form-actions">
+      <button class="btn primary" type="submit">儲存</button>
+      <a class="btn" href="{% url 'job_list' %}">取消</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

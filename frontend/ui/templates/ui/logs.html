@@ -1,0 +1,25 @@
+{% extends 'ui/base.html' %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Run Logs</h1>
+    <p class="muted">Run ID：{{ run_id }}</p>
+  </div>
+  <a class="btn" href="{% url 'job_runs' %}">返回 Runs</a>
+</div>
+
+<section class="panel">
+  <div class="log-list">
+    {% for log in logs %}
+      <div class="log-line {{ log.log_level }}">
+        <span class="log-time">{{ log.created_at }}</span>
+        <span class="log-level">{{ log.log_level }}</span>
+        <span>{{ log.message }}</span>
+      </div>
+    {% empty %}
+      <div class="empty">目前沒有 Log。</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

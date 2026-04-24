@@ -1,0 +1,14 @@
+{% extends 'ui/base.html' %}
+{% block title %}Health{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>System Health</h1>
+    <p class="muted">Backend API：{{ BACKEND_API_URL }}</p>
+  </div>
+</div>
+
+<section class="panel">
+  <pre class="json-box">{{ health }}</pre>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'ui/base.html' %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <h1>登入</h1>
+  <form method="post" class="form">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn primary" type="submit">登入</button>
+  </form>
+  <p class="muted">尚未有帳號？<a href="{% url 'register' %}">註冊</a></p>
+</section>
+{% endblock %}

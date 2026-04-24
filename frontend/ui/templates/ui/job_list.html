@@ -1,0 +1,12 @@
+{% extends 'ui/base.html' %}
+{% block title %}Jobs{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Job List</h1>
+    <p class="muted">管理所有排程任務。</p>
+  </div>
+  <a class="btn primary" href="{% url 'job_create' %}">建立 Job</a>
+</div>
+{% include 'ui/partials/job_table.html' with jobs=jobs %}
+{% endblock %}

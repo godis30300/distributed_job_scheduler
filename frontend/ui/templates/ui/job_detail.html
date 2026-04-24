@@ -1,0 +1,30 @@
+{% extends 'ui/base.html' %}
+{% block title %}Job Detail{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ job.task_name }}</h1>
+    <p class="muted">Job ID：{{ job.id }}</p>
+  </div>
+  <div class="actions">
+    <form method="post" action="{% url 'job_run' job.id %}">{% csrf_token %}<button class="btn primary" type="submit">手動執行</button></form>
+    <a class="btn" href="{% url 'job_edit' job.id %}">編輯</a>
+    <form method="post" action="{% url 'job_delete' job.id %}" onsubmit="return confirm('確定要刪除這個 Job？')">{% csrf_token %}<button class="btn danger" type="submit">刪除</button></form>
+  </div>
+</div>
+
+<section class="panel">
+  <dl class="detail-grid">
+    <dt>Status</dt><dd><span class="badge {{ job.status }}">{{ job.status }}</span></dd>
+    <dt>User</dt><dd>{{ job.user }}</dd>
+    <dt>Schedule Type</dt><dd>{{ job.schedule_type }}</dd>
+    <dt>Cron</dt><dd>{{ job.cron_expression|default:'-' }}</dd>
+    <dt>Interval</dt><dd>{{ job.interval_seconds|default:'-' }}</dd>
+    <dt>Action</dt><dd>{{ job.action }}</dd>
+    <dt>Timeout</dt><dd>{{ job.timeout_seconds }}s</dd>
+    <dt>Retry Limit</dt><dd>{{ job.retry_limit }}</dd>
+    <dt>Created</dt><dd>{{ job.created_at }}</dd>
+    <dt>Updated</dt><dd>{{ job.updated_at }}</dd>
+  </dl>
+</section>
+{% endblock %}

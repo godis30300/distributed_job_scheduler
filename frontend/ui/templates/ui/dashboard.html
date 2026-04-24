@@ -1,0 +1,35 @@
+{% extends 'ui/base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="muted">任務狀態總覽、近期執行紀錄與系統狀態入口。</p>
+  </div>
+  <a class="btn primary" href="{% url 'job_create' %}">建立 Job</a>
+</div>
+
+<section class="grid stats">
+  <div class="card"><span>Total Jobs</span><strong>{{ stats.total_jobs }}</strong></div>
+  <div class="card"><span>Enabled</span><strong>{{ stats.enabled_jobs }}</strong></div>
+  <div class="card"><span>Success Runs</span><strong>{{ stats.success_runs }}</strong></div>
+  <div class="card"><span>Failed / Timeout</span><strong>{{ stats.failed_runs }}</strong></div>
+  <div class="card"><span>Running</span><strong>{{ stats.running_runs }}</strong></div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <h2>近期 Jobs</h2>
+    <a href="{% url 'job_list' %}">查看全部</a>
+  </div>
+  {% include 'ui/partials/job_table.html' with jobs=jobs %}
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <h2>近期 Runs</h2>
+    <a href="{% url 'job_runs' %}">查看全部</a>
+  </div>
+  {% include 'ui/partials/run_table.html' with runs=runs %}
+</section>
+{% endblock %}
