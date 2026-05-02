@@ -35,15 +35,17 @@ def main():
             result = asyncio.run(execute_one_run(run.id, job, job.timeout_seconds))
 
             if result.get("stdout"):
-                add_log(db, run.id, "INFO", result["stdout"])
+                add_log(db, run.id, "INFO", result["stdout"], stream="stdout")
             if result.get("stderr"):
-                add_log(db, run.id, "ERROR", result["stderr"])
+                add_log(db, run.id, "ERROR", result["stderr"], stream="stderr")
 
             finish_run(
                 db,
                 run.id,
                 "success" if result.get("success") else "failed",
                 None if result.get("success") else result.get("stderr", "execution failed"),
+                stdout=result.get("stdout"),
+                stderr=result.get("stderr"),
             )
         except Exception as exc:
             print(f"[worker] error: {exc}")

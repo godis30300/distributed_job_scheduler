@@ -69,8 +69,4 @@ async def execute_job(action_type: str, payload: dict[str, Any], timeout_seconds
         return await execute_api_call(payload, timeout_seconds)
     if action_type == "shell":
         return await execute_shell(payload, timeout_seconds)
-    if action_type == "backup":
-        # Demo placeholder. Replace with real backup logic.
-        await asyncio.sleep(1)
-        return ExecutionResult(success=True, stdout="backup placeholder finished", stderr="")
     return ExecutionResult(success=False, stdout="", stderr=f"unsupported action_type: {action_type}")

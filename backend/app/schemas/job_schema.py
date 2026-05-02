@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class JobBase(BaseModel):
     task_name: str = Field(min_length=1, max_length=120)
-    action_type: str = Field(pattern="^(api_call|shell|backup)$")
+    action_type: str = Field(pattern="^(api_call|shell)$")
     action_payload: dict[str, Any]
     schedule_rule: str = Field(min_length=3, max_length=120)
     timeout_seconds: int = Field(default=300, ge=1, le=86400)
@@ -21,7 +21,7 @@ class JobCreate(JobBase):
 
 class JobUpdate(BaseModel):
     task_name: str | None = None
-    action_type: str | None = Field(default=None, pattern="^(api_call|shell|backup)$")
+    action_type: str | None = Field(default=None, pattern="^(api_call|shell)$")
     action_payload: dict[str, Any] | None = None
     schedule_rule: str | None = None
     timeout_seconds: int | None = Field(default=None, ge=1, le=86400)

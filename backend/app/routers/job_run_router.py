@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -14,10 +16,46 @@ router = APIRouter(prefix="/job-runs", tags=["job-runs"])
 def list_job_runs(
     status: str | None = Query(default=None),
     job_id: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    return job_run_controller.list_job_runs(db, status=status, job_id=job_id)
+    return job_run_controller.list_job_runs(
+        db,
+        status=status,
+        user_id=user_id,
+        job_id=job_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/logs/search", response_model=list[JobLogResponse])
+def search_logs(
+    task_name: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    log_level: str | None = Query(default=None),
+    start_time_from: datetime | None = Query(default=None),
+    start_time_to: datetime | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return job_run_controller.search_job_logs(
+        db,
+        task_name=task_name,
+        status=status,
+        user_id=user_id,
+        log_level=log_level,
+        start_time_from=start_time_from,
+        start_time_to=start_time_to,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{run_id}", response_model=JobRunResponse)

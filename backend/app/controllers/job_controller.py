@@ -1,14 +1,11 @@
-from datetime import datetime, timezone
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.job import Job
-from app.models.job_dependency import JobDependency
 from app.models.job_run import JobRun
 from app.models.user import User
 from app.schemas.job_schema import JobCreate, JobUpdate
-from app.services.schedule_utils import compute_next_run, utcnow
+from app.services.schedule_utils import compute_next_run
 
 
 def create_job(db: Session, payload: JobCreate, current_user: User) -> Job:
@@ -25,8 +22,9 @@ def create_job(db: Session, payload: JobCreate, current_user: User) -> Job:
         timeout_seconds=payload.timeout_seconds,
         max_retry=payload.max_retry,
         enabled=payload.enabled,
+        status="active" if payload.enabled else "disabled",
         description=payload.description,
-        created_by=current_user.id,
+        user_id=current_user.id,
         next_run_at=next_run_at,
     )
     db.add(job)
@@ -41,6 +39,8 @@ def list_jobs(db: Session, status: str | None = None, keyword: str | None = None
         query = query.filter(Job.enabled.is_(True))
     elif status == "disabled":
         query = query.filter(Job.enabled.is_(False))
+    elif status:
+        query = query.filter(Job.status == status)
     if keyword:
         query = query.filter(Job.task_name.ilike(f"%{keyword}%"))
     return query.order_by(Job.created_at.desc()).all()
@@ -73,7 +73,9 @@ def update_job(db: Session, job_id: str, payload: JobUpdate) -> Job:
 
 def delete_job(db: Session, job_id: str) -> dict:
     job = get_job_or_404(db, job_id)
-    db.delete(job)
+    job.enabled = False
+    job.status = "deleted"
+    job.next_run_at = None
     db.commit()
     return {"message": "job deleted"}
 
@@ -81,8 +83,11 @@ def delete_job(db: Session, job_id: str) -> dict:
 def set_job_enabled(db: Session, job_id: str, enabled: bool) -> Job:
     job = get_job_or_404(db, job_id)
     job.enabled = enabled
+    job.status = "active" if enabled else "disabled"
     if enabled:
         job.next_run_at = compute_next_run(job.schedule_rule)
+    else:
+        job.next_run_at = None
     db.commit()
     db.refresh(job)
     return job
@@ -93,9 +98,10 @@ def trigger_job(db: Session, job_id: str, current_user: User | None = None, trig
 
     run = JobRun(
         job_id=job.id,
+        user_id=current_user.id if current_user else job.user_id,
         status="pending",
-        triggered_by=current_user.id if current_user else None,
         trigger_type=trigger_type,
+        action_payload=job.action_payload,
     )
     db.add(run)
     db.commit()

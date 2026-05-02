@@ -1,23 +1,35 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 
 from app.core.database import Base
 
 
 class JobRun(Base):
     __tablename__ = "job_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'success', 'failed', 'canceled')",
+            name="ck_job_runs_status",
+        ),
+        CheckConstraint("retry_count >= 0", name="ck_job_runs_retry_count_nonnegative"),
+        Index("idx_job_runs_status_created_at", "status", "created_at"),
+        Index("idx_job_runs_user_id", "user_id"),
+        Index("idx_job_runs_locked_until", "locked_until"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), index=True, nullable=False)
     status: Mapped[str] = mapped_column(String(32), index=True, default="pending", nullable=False)
-    # pending, running, waiting, success, failed, canceled
+    # pending, running, success, failed, canceled
 
-    triggered_by: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     trigger_type: Mapped[str] = mapped_column(String(32), default="schedule", nullable=False)
     worker_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    locked_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -25,6 +37,9 @@ class JobRun(Base):
 
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    action_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    stdout: Mapped[str | None] = mapped_column(Text, nullable=True)
+    stderr: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -36,6 +51,9 @@ class JobRun(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    # Compatibility alias for existing API schemas/controllers.
+    triggered_by = synonym("user_id")
 
     job = relationship("Job", back_populates="runs")
     logs = relationship("JobLog", back_populates="run", cascade="all, delete-orphan")
