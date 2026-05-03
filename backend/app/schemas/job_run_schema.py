@@ -39,4 +39,6 @@ class JobLogResponse(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str
+    stdout: str | None = None
+    stderr: str | None = None
     error_message: str | None = None

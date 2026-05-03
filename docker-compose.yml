@@ -66,13 +66,13 @@ services:
     build:
       context: ./frontend
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
-    command: npm run dev -- --host 0.0.0.0
+      BACKEND_API_URL: http://backend:8000/api
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./frontend:/app
       - frontend-node-modules:/app/node_modules
     ports:
-      - "5173:5173"
+      - "5173:8000"
     depends_on:
       - backend
 

@@ -39,13 +39,18 @@ def main():
             if result.get("stderr"):
                 add_log(db, run.id, "ERROR", result["stderr"], stream="stderr")
 
+            stderr = result.get("stderr") or ""
+            finish_status = "success" if result.get("success") else "failed"
+            if stderr.startswith("timeout after"):
+                finish_status = "timeout"
+
             finish_run(
                 db,
                 run.id,
-                "success" if result.get("success") else "failed",
+                finish_status,
                 None if result.get("success") else result.get("stderr", "execution failed"),
                 stdout=result.get("stdout"),
-                stderr=result.get("stderr"),
+                stderr=stderr,
             )
         except Exception as exc:
             print(f"[worker] error: {exc}")

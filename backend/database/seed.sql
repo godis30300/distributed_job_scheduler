@@ -1,9 +1,9 @@
 -- Demo seed data for PostgreSQL / Log / DB Controller
 
-INSERT INTO users (id, username, password_hash, role, created_at)
+INSERT INTO users (id, username, email, password_hash, role, created_at)
 VALUES
-    ('00000000-0000-0000-0000-000000000001', 'admin', '$2b$12$demo.admin.hash', 'admin', now()),
-    ('00000000-0000-0000-0000-000000000002', 'jielin', '$2b$12$demo.jielin.hash', 'operator', now())
+    ('00000000-0000-0000-0000-000000000001', 'admin', 'admin@example.com', '$2b$12$demo.admin.hash', 'admin', now()),
+    ('00000000-0000-0000-0000-000000000002', 'jielin', 'jielin@example.com', '$2b$12$demo.jielin.hash', 'operator', now())
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO jobs (
@@ -26,10 +26,10 @@ VALUES
         '10000000-0000-0000-0000-000000000001',
         '00000000-0000-0000-0000-000000000002',
         'call-health-api',
-        'api_call',
-        '{"method":"GET","url":"https://example.com/health","headers":{},"body":null}'::jsonb,
+        'report',
+        '{}'::jsonb,
         'every:5m',
-        'active',
+        'enabled',
         TRUE,
         60,
         3,
@@ -41,10 +41,10 @@ VALUES
         '10000000-0000-0000-0000-000000000002',
         '00000000-0000-0000-0000-000000000002',
         'run-cleanup-script',
-        'shell',
-        '{"script":"hello.sh","args":[]}'::jsonb,
+        'backup',
+        '{}'::jsonb,
         'every:10m',
-        'active',
+        'enabled',
         TRUE,
         120,
         2,
@@ -60,6 +60,7 @@ INSERT INTO job_runs (
     user_id,
     status,
     trigger_type,
+    triggered_by,
     retry_count,
     action_payload,
     created_at,
@@ -72,8 +73,9 @@ VALUES
         '00000000-0000-0000-0000-000000000002',
         'pending',
         'schedule',
+        'schedule',
         0,
-        '{"method":"GET","url":"https://example.com/health","headers":{},"body":null}'::jsonb,
+        '{}'::jsonb,
         now(),
         now()
     ),
@@ -83,8 +85,9 @@ VALUES
         '00000000-0000-0000-0000-000000000002',
         'pending',
         'manual',
+        'manual',
         0,
-        '{"script":"hello.sh","args":[]}'::jsonb,
+        '{}'::jsonb,
         now(),
         now()
     )

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -11,7 +11,7 @@ class JobRun(Base):
     __tablename__ = "job_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'running', 'success', 'failed', 'canceled')",
+            "status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled')",
             name="ck_job_runs_status",
         ),
         CheckConstraint("retry_count >= 0", name="ck_job_runs_retry_count_nonnegative"),
@@ -23,10 +23,11 @@ class JobRun(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     job_id: Mapped[str] = mapped_column(String(36), ForeignKey("jobs.id"), index=True, nullable=False)
     status: Mapped[str] = mapped_column(String(32), index=True, default="pending", nullable=False)
-    # pending, running, success, failed, canceled
+    # pending, running, success, failed, timeout, canceled
 
     user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
     trigger_type: Mapped[str] = mapped_column(String(32), default="schedule", nullable=False)
+    triggered_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     worker_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     locked_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -51,9 +52,6 @@ class JobRun(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
-
-    # Compatibility alias for existing API schemas/controllers.
-    triggered_by = synonym("user_id")
 
     job = relationship("Job", back_populates="runs")
     logs = relationship("JobLog", back_populates="run", cascade="all, delete-orphan")

@@ -15,7 +15,7 @@ def get_pending_jobs(db: Session, limit: int = 50) -> list[JobRun]:
         .join(Job, Job.id == JobRun.job_id)
         .filter(JobRun.status == "pending")
         .filter(Job.enabled.is_(True))
-        .filter(Job.status == "active")
+        .filter(Job.status.in_(("enabled", "active")))
         .order_by(JobRun.created_at.asc())
         .limit(limit)
         .all()
@@ -28,7 +28,7 @@ def lock_pending_job(db: Session, worker_name: str, lock_seconds: int = 3600) ->
         .join(Job, Job.id == JobRun.job_id)
         .filter(JobRun.status == "pending")
         .filter(Job.enabled.is_(True))
-        .filter(Job.status == "active")
+        .filter(Job.status.in_(("enabled", "active")))
         .order_by(JobRun.created_at.asc())
         .with_for_update(skip_locked=True)
         .first()
@@ -129,6 +129,9 @@ def finish_run(
     stdout: str | None = None,
     stderr: str | None = None,
 ) -> JobRun | None:
+    if status not in {"success", "failed", "timeout", "canceled"}:
+        raise HTTPException(status_code=400, detail="Invalid terminal run status")
+
     run = db.query(JobRun).filter(JobRun.id == run_id).first()
     if not run:
         return None

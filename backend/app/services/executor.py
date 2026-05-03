@@ -69,4 +69,15 @@ async def execute_job(action_type: str, payload: dict[str, Any], timeout_seconds
         return await execute_api_call(payload, timeout_seconds)
     if action_type == "shell":
         return await execute_shell(payload, timeout_seconds)
+    if action_type == "report":
+        return ExecutionResult(success=True, stdout="daily report generated", stderr="")
+    if action_type == "email":
+        return ExecutionResult(success=True, stdout="email sent", stderr="")
+    if action_type == "backup":
+        return ExecutionResult(success=True, stdout="database backup completed", stderr="")
+    if action_type == "fail-test":
+        return ExecutionResult(success=False, stdout="", stderr="intentional failure for retry test")
+    if action_type == "long-task":
+        await asyncio.sleep(min(timeout_seconds, 2))
+        return ExecutionResult(success=True, stdout="long task completed", stderr="")
     return ExecutionResult(success=False, stdout="", stderr=f"unsupported action_type: {action_type}")

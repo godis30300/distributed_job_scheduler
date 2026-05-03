@@ -26,7 +26,7 @@ def scan_due_jobs(db: Session) -> dict:
     due_jobs = (
         db.query(Job)
         .filter(Job.enabled.is_(True))
-        .filter(Job.status == "active")
+        .filter(Job.status.in_(("enabled", "active")))
         .filter(Job.next_run_at.isnot(None))
         .filter(Job.next_run_at <= now)
         .with_for_update(skip_locked=True)
@@ -44,6 +44,7 @@ def scan_due_jobs(db: Session) -> dict:
             user_id=job.user_id,
             status="pending",
             trigger_type="schedule",
+            triggered_by="schedule",
             action_payload=job.action_payload,
         )
         db.add(run)

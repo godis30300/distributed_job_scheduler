@@ -10,9 +10,14 @@ def register_user(db: Session, payload: RegisterRequest) -> User:
     existing = db.query(User).filter(User.username == payload.username).first()
     if existing:
         raise HTTPException(status_code=409, detail="Username already exists")
+    if payload.email:
+        existing_email = db.query(User).filter(User.email == payload.email).first()
+        if existing_email:
+            raise HTTPException(status_code=409, detail="Email already exists")
 
     user = User(
         username=payload.username,
+        email=payload.email,
         password_hash=hash_password(payload.password),
         role=payload.role,
     )

@@ -9,7 +9,8 @@ from app.models.job_run import JobRun
 from app.models.user import User
 
 
-TERMINAL_STATUSES = {"success", "failed", "canceled"}
+TERMINAL_STATUSES = {"success", "failed", "timeout", "canceled"}
+VALID_RUN_STATUSES = {"pending", "running", "success", "failed", "timeout", "canceled"}
 
 
 def list_job_runs(
@@ -54,6 +55,7 @@ def create_job_run(
         user_id=user_id or job.user_id,
         status="pending" if start_as_pending else "running",
         trigger_type=triggered_by,
+        triggered_by=triggered_by,
         retry_count=retry_count,
         action_payload=job.action_payload,
     )
@@ -71,7 +73,7 @@ def update_job_run_status(
     stderr: str | None = None,
     error_message: str | None = None,
 ) -> JobRun:
-    if status not in {"pending", "running", "success", "failed", "canceled"}:
+    if status not in VALID_RUN_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid job run status")
 
     run = get_job_run(db, run_id)
@@ -104,14 +106,17 @@ def update_job_run_status(
 
 def retry_job_run(db: Session, run_id: str, current_user: User | None = None) -> JobRun:
     run = get_job_run(db, run_id)
-    if run.status not in ("failed", "canceled"):
-        raise HTTPException(status_code=400, detail="Only failed or canceled runs can be retried")
+    if run.status not in ("failed", "timeout", "canceled"):
+        raise HTTPException(status_code=400, detail="Only failed, timeout, or canceled runs can be retried")
+    if run.job and run.retry_count >= run.job.max_retry:
+        raise HTTPException(status_code=400, detail="Retry limit reached")
 
     new_run = JobRun(
         job_id=run.job_id,
         user_id=current_user.id if current_user else run.user_id,
         status="pending",
         trigger_type="retry",
+        triggered_by="retry",
         retry_count=run.retry_count + 1,
         action_payload=run.job.action_payload if run.job else run.action_payload,
     )

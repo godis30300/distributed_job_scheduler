@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
     username VARCHAR(80) NOT NULL UNIQUE,
+    email VARCHAR(255) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(32) NOT NULL DEFAULT 'operator',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -25,8 +26,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     last_run_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_jobs_action_type CHECK (action_type IN ('api_call', 'shell')),
-    CONSTRAINT ck_jobs_status CHECK (status IN ('active', 'paused', 'disabled', 'deleted')),
+    CONSTRAINT ck_jobs_action_type CHECK (action_type IN ('api_call', 'shell', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+    CONSTRAINT ck_jobs_status CHECK (status IN ('enabled', 'active', 'paused', 'disabled', 'deleted')),
     CONSTRAINT ck_jobs_timeout_positive CHECK (timeout_seconds > 0),
     CONSTRAINT ck_jobs_max_retry_nonnegative CHECK (max_retry >= 0)
 );
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS job_runs (
     user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'pending',
     trigger_type VARCHAR(32) NOT NULL DEFAULT 'schedule',
+    triggered_by VARCHAR(80),
     worker_id VARCHAR(80),
     locked_by VARCHAR(80),
     locked_until TIMESTAMPTZ,
@@ -51,7 +53,7 @@ CREATE TABLE IF NOT EXISTS job_runs (
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_job_runs_status CHECK (status IN ('pending', 'running', 'success', 'failed', 'canceled')),
+    CONSTRAINT ck_job_runs_status CHECK (status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled')),
     CONSTRAINT ck_job_runs_retry_count_nonnegative CHECK (retry_count >= 0)
 );
 
@@ -78,6 +80,7 @@ CREATE TABLE IF NOT EXISTS job_dependencies (
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_jobs_next_run_at ON jobs(next_run_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_task_name ON jobs(task_name);
 
