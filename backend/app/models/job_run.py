@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -14,10 +14,20 @@ class JobRun(Base):
             "status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled')",
             name="ck_job_runs_status",
         ),
+        CheckConstraint(
+            "trigger_type IN ('schedule', 'manual', 'api', 'retry', 'dependency')",
+            name="ck_job_runs_trigger_type",
+        ),
         CheckConstraint("retry_count >= 0", name="ck_job_runs_retry_count_nonnegative"),
         Index("idx_job_runs_status_created_at", "status", "created_at"),
         Index("idx_job_runs_user_id", "user_id"),
         Index("idx_job_runs_locked_until", "locked_until"),
+        Index("idx_job_runs_pending_queue", "created_at", postgresql_where=text("status = 'pending'")),
+        Index(
+            "idx_job_runs_running_locks",
+            "locked_until",
+            postgresql_where=text("status = 'running' AND locked_until IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

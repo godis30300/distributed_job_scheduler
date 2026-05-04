@@ -1,5 +1,11 @@
 # Distributed Asynchronous Job Scheduler
 
+DB 串接文件：`backend/database/API_DB_INTEGRATION.md`
+
+PostgreSQL schema：`backend/database/schema.sql`
+
+DB 已支援作業需求中的 queue lock、log、retry、dependency、failover heartbeat 與 worker 水平擴展。
+
 這是一個可實作課堂專題的全端骨架，符合：
 
 - Python FastAPI 後端

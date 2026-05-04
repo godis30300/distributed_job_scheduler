@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 
 from app.core.database import Base
@@ -20,6 +20,13 @@ class Job(Base):
         Index("idx_jobs_status", "status"),
         Index("idx_jobs_user_id", "user_id"),
         Index("idx_jobs_next_run_at", "next_run_at"),
+        Index(
+            "idx_jobs_due_schedule",
+            "next_run_at",
+            postgresql_where=text(
+                "enabled = TRUE AND status IN ('enabled', 'active') AND next_run_at IS NOT NULL"
+            ),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
