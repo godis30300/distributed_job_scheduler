@@ -18,6 +18,7 @@ class Job(Base):
         CheckConstraint("timeout_seconds > 0", name="ck_jobs_timeout_positive"),
         CheckConstraint("max_retry >= 0", name="ck_jobs_max_retry_nonnegative"),
         Index("idx_jobs_status", "status"),
+        Index("idx_jobs_enabled_status_next_run_at", "enabled", "status", "next_run_at"),
         Index("idx_jobs_user_id", "user_id"),
         Index("idx_jobs_next_run_at", "next_run_at"),
     )

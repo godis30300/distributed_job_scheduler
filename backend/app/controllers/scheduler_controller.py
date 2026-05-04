@@ -45,7 +45,9 @@ def scan_due_jobs(db: Session) -> dict:
             status="pending",
             trigger_type="schedule",
             triggered_by="schedule",
+            action_type=job.action_type,
             action_payload=job.action_payload,
+            timeout_seconds=job.timeout_seconds,
         )
         db.add(run)
         job.last_run_at = now

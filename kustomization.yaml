@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deploy/k8s/00-namespace.yaml
+  - deploy/k8s/01-config.yaml
+  - deploy/k8s/02-postgres.yaml
+  - deploy/k8s/03-backend.yaml
+  - deploy/k8s/04-scheduler-worker.yaml
+  - deploy/k8s/05-frontend.yaml
+  - deploy/k8s/06-ingress-example.yaml
+
+configMapGenerator:
+  - name: postgres-init-sql
+    namespace: job-scheduler
+    files:
+      - 01-schema.sql=backend/database/schema.sql
+      - 02-seed.sql=backend/database/seed.sql
+
+generatorOptions:
+  disableNameSuffixHash: true

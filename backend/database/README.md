@@ -1,53 +1,56 @@
-# 杰霖｜PostgreSQL / Log / DB Controller
+# PostgreSQL / Log / DB Controller
 
-這個資料夾是 Distributed Asynchronous Job Scheduler 的資料庫交付內容，對應 README 分工中的：
+This folder owns the database contract used by the FastAPI routes, scheduler,
+worker, UI log viewer, and Kubernetes/PostgreSQL deployment.
+
+## Files
+
+- `schema.sql`: canonical PostgreSQL schema for a fresh database.
+- `seed.sql`: demo users, jobs, runs, logs, and dependency data.
+- `migrations/001_init.sql`: class-demo initializer that includes `schema.sql`.
+- `migrations/002_db_integration_fields.sql`: legacy API/UI alignment.
+- `migrations/003_job_run_snapshots_and_indexes.sql`: job run action snapshots,
+  query indexes, and DB-level `updated_at` triggers.
+
+## Tables
+
+- `users`: login identity used by auth and job ownership.
+- `jobs`: job definition, schedule, action, retry limit, timeout, and next run.
+- `job_runs`: immutable execution snapshot for every scheduled/manual/retry run.
+  Each run stores `action_type`, `action_payload`, and `timeout_seconds` so a
+  queued/history run does not change behavior when the source job is edited.
+- `job_logs`: stdout, stderr, and system log messages for UI/API search.
+- `job_dependencies`: dependency graph between jobs.
+
+## DB Controller Contract
+
+Python DB controller functions live in:
 
 ```text
-backend/app/models/
+backend/app/controllers/job_controller.py
 backend/app/controllers/job_run_controller.py
 backend/app/controllers/queue_controller.py
+backend/app/controllers/scheduler_controller.py
 ```
 
-## 負責內容
+Important functions for integration:
 
-- PostgreSQL schema：`users`、`jobs`、`job_runs`、`job_logs`、`job_dependencies`
-- Log 儲存與查詢：依任務、狀態、使用者、時間、log level 查詢
-- Job Run Controller：執行紀錄、重試、取消、狀態更新、log 寫入
-- Queue Controller：pending job 查詢、任務鎖定、過期鎖釋放、dependency 檢查
-- DB index：針對 scheduler、worker、UI 常用查詢建立索引
-- PostgreSQL lock：使用 `FOR UPDATE SKIP LOCKED` 防止重複執行
+- `create_job`, `list_jobs`, `get_job_or_404`, `update_job`, `delete_job`
+- `create_job_run`, `update_job_run_status`, `retry_job_run`, `cancel_job_run`
+- `save_job_log`, `get_job_run_logs`, `search_job_logs`
+- `get_pending_jobs`, `lock_pending_job`, `dequeue_next_run`, `finish_run`
+- `create_dependency`, `check_dependency_finished`
 
-## 資料表
+## Queue Locking
 
-### users
-
-儲存登入與權限資料。欄位包含 `id`、`username`、`password_hash`、`role`、`created_at`。
-
-### jobs
-
-儲存任務定義。欄位包含 `task_name`、`action_type`、`action_payload`、`schedule_rule`、`status`、`timeout_seconds`、`max_retry`、`next_run_at`。
-
-### job_runs
-
-儲存每次任務執行紀錄。欄位包含 `status`、`user_id`、`start_time`、`end_time`、`duration_seconds`、`retry_count`、`locked_by`、`locked_until`、`stdout`、`stderr`、`error_message`。
-
-### job_logs
-
-儲存任務執行 log。支援 `stdout`、`stderr`、`system` 三種 stream。
-
-### job_dependencies
-
-儲存任務相依性，例如 shell cleanup job 要等 health API job 成功後才可執行。
-
-## Queue Lock 設計
-
-`backend/app/controllers/queue_controller.py` 的 `lock_pending_job()` 使用 SQLAlchemy：
+`queue_controller.lock_pending_job()` uses PostgreSQL row locking through
+SQLAlchemy:
 
 ```python
 .with_for_update(skip_locked=True)
 ```
 
-等價 SQL：
+Equivalent SQL:
 
 ```sql
 SELECT *
@@ -58,20 +61,19 @@ FOR UPDATE SKIP LOCKED
 LIMIT 1;
 ```
 
-當多個 worker 同時取任務時，已被鎖住的 row 會被其他 worker 跳過，因此同一筆 `job_runs` 不會被重複執行。
+This lets multiple Job Controller / Worker replicas pull work concurrently
+without executing the same `job_runs` row twice.
 
-## 如何套用 SQL
+## Running SQL Manually
 
-啟動 docker compose 後：
+From the repository root:
 
 ```powershell
 Get-Content -Raw backend\database\schema.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 Get-Content -Raw backend\database\seed.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\003_job_run_snapshots_and_indexes.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 ```
 
-## 整合方式
-
-- 其佑 API：呼叫 job / job_run controllers 建立 job、trigger run、retry、cancel
-- 振元 worker/scheduler：呼叫 queue controller 鎖定 pending run、寫 log、完成 run
-- 政卿 UI：透過 job-runs API 查詢狀態與 logs
-- 睿謙部署：PostgreSQL 使用 docker-compose 或 K8s manifests，schema 可作為 init SQL 或 migration 參考
+For a fresh Docker Compose database, `schema.sql` and `seed.sql` are mounted
+into `/docker-entrypoint-initdb.d` and run automatically when the Postgres data
+volume is empty.

@@ -26,8 +26,8 @@ VALUES
         '10000000-0000-0000-0000-000000000001',
         '00000000-0000-0000-0000-000000000002',
         'call-health-api',
-        'report',
-        '{}'::jsonb,
+        'api_call',
+        '{"method":"GET","url":"http://backend:8000/api/system/health","headers":{},"body":null}'::jsonb,
         'every:5m',
         'enabled',
         TRUE,
@@ -41,8 +41,8 @@ VALUES
         '10000000-0000-0000-0000-000000000002',
         '00000000-0000-0000-0000-000000000002',
         'run-cleanup-script',
-        'backup',
-        '{}'::jsonb,
+        'shell',
+        '{"script":"hello.sh","args":[]}'::jsonb,
         'every:10m',
         'enabled',
         TRUE,
@@ -62,7 +62,9 @@ INSERT INTO job_runs (
     trigger_type,
     triggered_by,
     retry_count,
+    action_type,
     action_payload,
+    timeout_seconds,
     created_at,
     updated_at
 )
@@ -75,7 +77,9 @@ VALUES
         'schedule',
         'schedule',
         0,
-        '{}'::jsonb,
+        'api_call',
+        '{"method":"GET","url":"http://backend:8000/api/system/health","headers":{},"body":null}'::jsonb,
+        60,
         now(),
         now()
     ),
@@ -87,7 +91,9 @@ VALUES
         'manual',
         'manual',
         0,
-        '{}'::jsonb,
+        'shell',
+        '{"script":"hello.sh","args":[]}'::jsonb,
+        120,
         now(),
         now()
     )
@@ -95,8 +101,8 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO job_logs (id, job_run_id, log_level, stream, message, created_at)
 VALUES
-    ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'info', 'system', 'demo api_call run created', now()),
-    ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'info', 'system', 'demo shell run created', now())
+    ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'info', 'system', 'demo api_call run created with action snapshot', now()),
+    ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'info', 'system', 'demo shell run created with action snapshot', now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO job_dependencies (id, job_id, depends_on_job_id, required_status, created_at)

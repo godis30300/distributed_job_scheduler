@@ -1,60 +1,65 @@
 # Distributed Asynchronous Job Scheduler
 
-這是一個可實作課堂專題的全端骨架，符合：
+Class-project full-stack skeleton for a distributed asynchronous job scheduler.
 
-- Python FastAPI 後端
-- Model / Controller / Router 分層
-- PostgreSQL 儲存 Job、Job Run、Log
-- Scheduler 掃描到期任務
-- Worker 非同步執行任務
-- React 前端 UI
-- Docker Compose 一鍵啟動
-- Kubernetes manifests 範例
-- Prometheus `/api/metrics` 指標端點
+It includes:
 
-## 專案架構
+- Python FastAPI backend
+- Model / controller / router layering
+- PostgreSQL tables for users, jobs, job runs, logs, and dependencies
+- Scheduler loop that creates due `job_runs`
+- Worker loop that locks pending runs and executes job actions
+- Django-based web UI
+- Docker Compose local environment
+- Kubernetes manifests and kustomize example
+- Prometheus `/api/metrics` endpoint
+
+## Project Layout
 
 ```text
 distributed_job_scheduler/
 ├── backend/
 │   ├── app/
-│   │   ├── core/          # config, db, security
-│   │   ├── models/        # SQLAlchemy models
-│   │   ├── schemas/       # Pydantic schemas
-│   │   ├── controllers/   # business logic
-│   │   ├── routers/       # FastAPI routers
-│   │   ├── services/      # scheduler loop, worker loop, executors
+│   │   ├── core/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── controllers/
+│   │   ├── routers/
+│   │   ├── services/
 │   │   └── main.py
+│   ├── database/
+│   │   ├── schema.sql
+│   │   ├── seed.sql
+│   │   └── migrations/
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
-│   ├── src/
-│   │   ├── api/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   └── App.jsx
-│   ├── package.json
-│   └── Dockerfile
 ├── deploy/k8s/
 └── docker-compose.yml
 ```
 
-## 快速啟動
+## Quick Start
 
 ```bash
 docker compose up --build
 ```
 
-啟動後：
+Endpoints:
 
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 - PostgreSQL: localhost:5432
 
-## 預設帳號
+For a fresh Postgres volume, Docker Compose automatically runs:
 
-第一次請先到前端 Register 建立帳號，或用 API：
+- `backend/database/schema.sql`
+- `backend/database/seed.sql`
+
+If the `postgres-data` volume already exists, apply migrations manually with
+`psql` or recreate the volume for a clean demo database.
+
+## Register a User
 
 ```bash
 curl -X POST http://localhost:8000/api/auth/register \
@@ -62,9 +67,9 @@ curl -X POST http://localhost:8000/api/auth/register \
   -d '{"username":"admin","password":"admin123","role":"admin"}'
 ```
 
-## Job Action Payload 範例
+## Job Payload Examples
 
-### API Call 任務
+API call job:
 
 ```json
 {
@@ -72,7 +77,7 @@ curl -X POST http://localhost:8000/api/auth/register \
   "action_type": "api_call",
   "action_payload": {
     "method": "GET",
-    "url": "https://example.com/health",
+    "url": "http://backend:8000/api/system/health",
     "headers": {},
     "body": null
   },
@@ -82,9 +87,7 @@ curl -X POST http://localhost:8000/api/auth/register \
 }
 ```
 
-### Shell 任務
-
-> 為了安全，shell 只允許執行 `backend/scripts` 目錄中的白名單 script。
+Shell job:
 
 ```json
 {
@@ -100,62 +103,78 @@ curl -X POST http://localhost:8000/api/auth/register \
 }
 ```
 
-## Schedule Rule 支援
+Shell actions are restricted to scripts under `backend/scripts`.
 
-目前支援兩種格式：
+## Schedule Rules
+
+Supported interval formats:
 
 ```text
 every:5m
 every:1h
 ```
 
-以及 cron 格式，例如：
+Cron expressions are also supported, for example:
 
 ```text
 0 2 * * *
 ```
 
-## 核心 API
+## Core API
 
-| Method | Path | 說明 |
+| Method | Path | Description |
 |---|---|---|
-| POST | `/api/auth/register` | 註冊 |
-| POST | `/api/auth/login` | 登入 |
-| GET | `/api/auth/me` | 目前使用者 |
-| POST | `/api/jobs` | 建立 Job |
-| GET | `/api/jobs` | Job List |
-| GET | `/api/jobs/{job_id}` | Job Detail |
-| PUT | `/api/jobs/{job_id}` | 更新 Job |
-| DELETE | `/api/jobs/{job_id}` | 刪除 Job |
-| POST | `/api/jobs/{job_id}/trigger` | 手動觸發 |
-| GET | `/api/job-runs` | 執行紀錄 |
-| GET | `/api/job-runs/{run_id}` | 單次執行紀錄 |
-| POST | `/api/job-runs/{run_id}/retry` | 重試 |
-| POST | `/api/job-runs/{run_id}/cancel` | 取消 |
-| GET | `/api/job-runs/{run_id}/logs` | Log |
-| POST | `/api/scheduler/scan` | 手動掃描到期任務 |
-| GET | `/api/dashboard/summary` | Dashboard 統計 |
-| GET | `/api/system/health` | 系統健康檢查 |
+| POST | `/api/auth/register` | Register |
+| POST | `/api/auth/login` | Login |
+| GET | `/api/auth/me` | Current user |
+| POST | `/api/jobs` | Create job |
+| GET | `/api/jobs` | List jobs |
+| GET | `/api/jobs/{job_id}` | Job detail |
+| PUT | `/api/jobs/{job_id}` | Update job |
+| DELETE | `/api/jobs/{job_id}` | Delete job |
+| POST | `/api/jobs/{job_id}/run` | Manual run |
+| POST | `/api/jobs/{job_id}/trigger` | Manual run alias |
+| GET | `/api/job-runs` | Run history |
+| GET | `/api/job-runs/{run_id}` | Run detail |
+| GET | `/api/job-runs/{run_id}/logs` | Run logs |
+| GET | `/api/job-runs/logs/search` | Search logs |
+| POST | `/api/job-runs/{run_id}/retry` | Retry failed run |
+| POST | `/api/job-runs/{run_id}/cancel` | Cancel pending/running run |
+| POST | `/api/scheduler/scan` | Manually scan due jobs |
+| POST | `/api/workers/pull` | Pull and lock one pending run |
+| POST | `/api/workers/{run_id}/finish` | Finish run and save output |
+| GET | `/api/dashboard/summary` | Dashboard summary |
+| GET | `/api/system/health` | Health check |
 | GET | `/api/metrics` | Prometheus metrics |
 
-## 分工對應
+## Kubernetes
 
-| 成員 | 對應目錄 |
-|---|---|
-| 睿謙 | `deploy/`, `docker-compose.yml`, `backend/app/routers/system_router.py` |
-| 其佑 | `backend/app/controllers/auth_controller.py`, `backend/app/controllers/job_controller.py`, `backend/app/routers/` |
-| 振元 | `backend/app/services/worker_loop.py`, `backend/app/services/scheduler_loop.py`, `backend/Dockerfile` |
-| 杰霖 | `backend/app/models/`, `backend/app/controllers/job_run_controller.py`, `backend/app/controllers/queue_controller.py` |
-| 政卿 | `frontend/`, Dashboard、Job UI、API 串接 |
+Use kustomize from the repository root so PostgreSQL receives the schema and
+seed SQL as a ConfigMap:
 
-## 注意
+```bash
+kubectl apply -k .
+```
 
-這是教學 / 專題用骨架，已具備完整實作方向，但正式環境仍應補強：
+`deploy/k8s/02-postgres.yaml` mounts the generated `postgres-init-sql`
+ConfigMap to `/docker-entrypoint-initdb.d` and stores data in a PVC.
+
+## Team Ownership
+
+| Member | Area | Main paths |
+|---|---|---|
+| Ruiqian | Environment / Kubernetes / monitoring | `deploy/`, `docker-compose.yml`, system router |
+| Qiyou | Python API / auth / routes | `backend/app/controllers/auth_controller.py`, `backend/app/controllers/job_controller.py`, `backend/app/routers/` |
+| Zhenyuan | Job Controller / worker / task execution | `backend/app/services/worker_loop.py`, `backend/app/services/scheduler_loop.py`, `backend/Dockerfile` |
+| Jielin | PostgreSQL / log / DB controller | `backend/database/`, `backend/app/models/`, `backend/app/controllers/job_run_controller.py`, `backend/app/controllers/queue_controller.py` |
+| Zhengqing | UI / integration | `frontend/` |
+
+## Production Hardening Still Needed
 
 - HTTPS / Ingress TLS
 - Kubernetes RBAC
-- Secret 管理
-- DB migration，例如 Alembic
-- 更完整的測試
-- 更嚴格的 shell sandbox
-- Log 拆到 Loki / Object Storage
+- Secret management
+- Alembic migration workflow
+- Automated integration tests
+- Stricter shell sandboxing
+- Centralized logs with Loki or object storage

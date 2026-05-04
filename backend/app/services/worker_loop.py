@@ -10,11 +10,6 @@ from app.services.executor import execute_job
 settings = get_settings()
 
 
-async def execute_one_run(run_id: str, job, timeout_seconds: int):
-    result = await execute_job(job.action_type, job.action_payload, timeout_seconds)
-    return result
-
-
 def main():
     init_db()
     worker_id = os.getenv("WORKER_ID", settings.worker_id)
@@ -30,14 +25,11 @@ def main():
                 continue
 
             job = run.job
-            add_log(db, run.id, "INFO", f"Start executing job: {job.task_name}")
+            action_payload = run.action_payload if run.action_payload is not None else job.action_payload
+            timeout_seconds = run.timeout_seconds or job.timeout_seconds
+            add_log(db, run.id, "INFO", f"Start executing job: {job.task_name} ({run.action_type})")
 
-            result = asyncio.run(execute_one_run(run.id, job, job.timeout_seconds))
-
-            if result.get("stdout"):
-                add_log(db, run.id, "INFO", result["stdout"], stream="stdout")
-            if result.get("stderr"):
-                add_log(db, run.id, "ERROR", result["stderr"], stream="stderr")
+            result = asyncio.run(execute_job(run.action_type, action_payload, timeout_seconds))
 
             stderr = result.get("stderr") or ""
             finish_status = "success" if result.get("success") else "failed"

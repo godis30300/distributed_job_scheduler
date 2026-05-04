@@ -14,6 +14,7 @@ class JobLog(Base):
         CheckConstraint("stream IN ('stdout', 'stderr', 'system')", name="ck_job_logs_stream"),
         Index("idx_job_logs_level_created_at", "log_level", "created_at"),
         Index("idx_job_logs_run_created_at", "job_run_id", "created_at"),
+        Index("idx_job_logs_created_at", "created_at"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

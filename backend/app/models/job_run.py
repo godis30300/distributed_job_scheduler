@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -15,8 +15,17 @@ class JobRun(Base):
             name="ck_job_runs_status",
         ),
         CheckConstraint("retry_count >= 0", name="ck_job_runs_retry_count_nonnegative"),
+        CheckConstraint(
+            "action_type IN ('api_call', 'shell', 'report', 'email', 'backup', 'fail-test', 'long-task')",
+            name="ck_job_runs_action_type",
+        ),
+        CheckConstraint("timeout_seconds > 0", name="ck_job_runs_timeout_positive"),
         Index("idx_job_runs_status_created_at", "status", "created_at"),
+        Index("idx_job_runs_pending_queue", "created_at", postgresql_where=text("status = 'pending'")),
         Index("idx_job_runs_user_id", "user_id"),
+        Index("idx_job_runs_user_start_time", "user_id", "start_time"),
+        Index("idx_job_runs_start_time", "start_time"),
+        Index("idx_job_runs_job_status_created_at", "job_id", "status", "created_at"),
         Index("idx_job_runs_locked_until", "locked_until"),
     )
 
@@ -38,7 +47,9 @@ class JobRun(Base):
 
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    action_type: Mapped[str] = mapped_column(String(40), nullable=False)
     action_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=300, nullable=False)
     stdout: Mapped[str | None] = mapped_column(Text, nullable=True)
     stderr: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

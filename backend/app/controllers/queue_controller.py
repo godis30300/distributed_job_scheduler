@@ -143,10 +143,16 @@ def finish_run(
     run.locked_by = None
     run.locked_until = None
     run.error_message = error_message
+    if error_message:
+        db.add(JobLog(job_run_id=run.id, log_level="error", stream="system", message=error_message))
     if stdout is not None:
         run.stdout = stdout
+        if stdout:
+            db.add(JobLog(job_run_id=run.id, log_level="info", stream="stdout", message=stdout))
     if stderr is not None:
         run.stderr = stderr
+        if stderr:
+            db.add(JobLog(job_run_id=run.id, log_level="error", stream="stderr", message=stderr))
     if run.start_time:
         run.duration_seconds = int((now - run.start_time).total_seconds())
 

@@ -57,7 +57,9 @@ def create_job_run(
         trigger_type=triggered_by,
         triggered_by=triggered_by,
         retry_count=retry_count,
+        action_type=job.action_type,
         action_payload=job.action_payload,
+        timeout_seconds=job.timeout_seconds,
     )
     db.add(run)
     db.commit()
@@ -94,10 +96,16 @@ def update_job_run_status(
 
     if stdout is not None:
         run.stdout = stdout
+        if stdout:
+            db.add(JobLog(job_run_id=run.id, log_level="info", stream="stdout", message=stdout))
     if stderr is not None:
         run.stderr = stderr
+        if stderr:
+            db.add(JobLog(job_run_id=run.id, log_level="error", stream="stderr", message=stderr))
     if error_message is not None:
         run.error_message = error_message
+        if error_message:
+            db.add(JobLog(job_run_id=run.id, log_level="error", stream="system", message=error_message))
 
     db.commit()
     db.refresh(run)
@@ -118,7 +126,9 @@ def retry_job_run(db: Session, run_id: str, current_user: User | None = None) ->
         trigger_type="retry",
         triggered_by="retry",
         retry_count=run.retry_count + 1,
-        action_payload=run.job.action_payload if run.job else run.action_payload,
+        action_type=run.action_type if run.action_type else run.job.action_type,
+        action_payload=run.action_payload if run.action_payload is not None else run.job.action_payload,
+        timeout_seconds=run.timeout_seconds if run.timeout_seconds else run.job.timeout_seconds,
     )
     db.add(new_run)
     db.add(JobLog(job_run_id=run.id, log_level="info", stream="system", message=f"Retry created: {new_run.id}"))

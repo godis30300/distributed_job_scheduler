@@ -1,5 +1,5 @@
 -- PostgreSQL schema for Distributed Asynchronous Job Scheduler
--- Owner: 杰霖｜PostgreSQL / Log / DB Controller
+-- Owner: PostgreSQL / Log / DB Controller
 
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     action_type VARCHAR(40) NOT NULL,
     action_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
     schedule_rule VARCHAR(120) NOT NULL,
-    status VARCHAR(32) NOT NULL DEFAULT 'active',
+    status VARCHAR(32) NOT NULL DEFAULT 'enabled',
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
     timeout_seconds INTEGER NOT NULL DEFAULT 300,
     max_retry INTEGER NOT NULL DEFAULT 3,
@@ -47,14 +47,18 @@ CREATE TABLE IF NOT EXISTS job_runs (
     heartbeat_at TIMESTAMPTZ,
     duration_seconds INTEGER,
     retry_count INTEGER NOT NULL DEFAULT 0,
+    action_type VARCHAR(40) NOT NULL,
     action_payload JSONB,
+    timeout_seconds INTEGER NOT NULL DEFAULT 300,
     stdout TEXT,
     stderr TEXT,
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ck_job_runs_status CHECK (status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled')),
-    CONSTRAINT ck_job_runs_retry_count_nonnegative CHECK (retry_count >= 0)
+    CONSTRAINT ck_job_runs_retry_count_nonnegative CHECK (retry_count >= 0),
+    CONSTRAINT ck_job_runs_action_type CHECK (action_type IN ('api_call', 'shell', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+    CONSTRAINT ck_job_runs_timeout_positive CHECK (timeout_seconds > 0)
 );
 
 CREATE TABLE IF NOT EXISTS job_logs (
@@ -75,25 +79,52 @@ CREATE TABLE IF NOT EXISTS job_dependencies (
     required_status VARCHAR(32) NOT NULL DEFAULT 'success',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_job_dependencies_pair UNIQUE (job_id, depends_on_job_id),
-    CONSTRAINT ck_job_dependencies_not_self CHECK (job_id <> depends_on_job_id)
+    CONSTRAINT ck_job_dependencies_not_self CHECK (job_id <> depends_on_job_id),
+    CONSTRAINT ck_job_dependencies_required_status CHECK (required_status IN ('success', 'failed', 'timeout', 'canceled'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_enabled_status_next_run_at ON jobs(enabled, status, next_run_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_jobs_next_run_at ON jobs(next_run_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_task_name ON jobs(task_name);
 
 CREATE INDEX IF NOT EXISTS idx_job_runs_status_created_at ON job_runs(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_job_runs_pending_queue ON job_runs(created_at) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_job_runs_job_id ON job_runs(job_id);
+CREATE INDEX IF NOT EXISTS idx_job_runs_job_status_created_at ON job_runs(job_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_runs_user_id ON job_runs(user_id);
+CREATE INDEX IF NOT EXISTS idx_job_runs_user_start_time ON job_runs(user_id, start_time);
+CREATE INDEX IF NOT EXISTS idx_job_runs_start_time ON job_runs(start_time);
 CREATE INDEX IF NOT EXISTS idx_job_runs_locked_until ON job_runs(locked_until);
 
 CREATE INDEX IF NOT EXISTS idx_job_logs_run_created_at ON job_logs(job_run_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_logs_level_created_at ON job_logs(log_level, created_at);
+CREATE INDEX IF NOT EXISTS idx_job_logs_created_at ON job_logs(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_job_dependencies_job_id ON job_dependencies(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_dependencies_depends_on_job_id ON job_dependencies(depends_on_job_id);
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_jobs_updated_at ON jobs;
+CREATE TRIGGER trg_jobs_updated_at
+BEFORE UPDATE ON jobs
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_job_runs_updated_at ON job_runs;
+CREATE TRIGGER trg_job_runs_updated_at
+BEFORE UPDATE ON job_runs
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
 
 -- Queue lock query used by queue_controller.lock_pending_job:
 --

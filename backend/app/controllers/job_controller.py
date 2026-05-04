@@ -148,7 +148,9 @@ def trigger_job(db: Session, job_id: str, current_user: User | None = None, trig
         status="pending",
         trigger_type=trigger_type,
         triggered_by=trigger_type,
+        action_type=job.action_type,
         action_payload=job.action_payload,
+        timeout_seconds=job.timeout_seconds,
     )
     db.add(run)
     db.commit()

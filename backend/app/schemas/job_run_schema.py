@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -17,6 +18,9 @@ class JobRunResponse(BaseModel):
     heartbeat_at: datetime | None
     duration_seconds: int | None
     retry_count: int
+    action_type: str
+    action_payload: dict[str, Any] | None
+    timeout_seconds: int
     stdout: str | None
     stderr: str | None
     error_message: str | None
