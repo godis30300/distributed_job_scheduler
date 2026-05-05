@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import sys
 import uuid
+from pathlib import Path
 from datetime import datetime, timezone
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
