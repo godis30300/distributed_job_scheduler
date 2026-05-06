@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.job import Job
@@ -39,6 +40,10 @@ def _normalize_status(status: str | None, enabled: bool | None = None) -> str:
 
 
 def create_job(db: Session, payload: JobCreate, current_user: User) -> Job:
+    existing = db.query(Job).filter(Job.task_name == payload.task_name).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Job task_name already exists")
+
     schedule_rule = _schedule_rule(payload.schedule_type, payload.cron_expression, payload.interval_seconds)
     status = _normalize_status(payload.status, payload.enabled)
     next_run_at = _next_run_at(schedule_rule) if status == "enabled" else None
@@ -57,7 +62,11 @@ def create_job(db: Session, payload: JobCreate, current_user: User) -> Job:
         next_run_at=next_run_at,
     )
     db.add(job)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Job task_name already exists")
     db.refresh(job)
     return job
 
