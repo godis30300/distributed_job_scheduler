@@ -115,12 +115,57 @@ docker compose exec db psql -U postgres -d jobscheduler -c "SELECT log_level, st
 ## 7. Full app test
 
 ```powershell
-docker compose up --build
+docker compose up -d worker frontend
+docker compose ps
 ```
 
-Open:
+Expected services:
+
+```text
+db        Up ... healthy
+backend   Up ...
+worker    Up ...
+frontend  Up ...
+```
+
+Check backend health:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://localhost:8000/api/system/health | Select-Object -ExpandProperty Content
+```
+
+Expected response contains:
+
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "api": "running"
+}
+```
+
+Check API docs and frontend:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://localhost:8000/docs | Select-Object -ExpandProperty StatusCode
+Invoke-WebRequest -UseBasicParsing http://localhost:5173 | Select-Object -ExpandProperty StatusCode
+```
+
+Both should return:
+
+```text
+200
+```
+
+Open in browser:
 
 ```text
 Backend API: http://localhost:8000/docs
 Frontend:    http://localhost:5173
+```
+
+If a manually triggered `job_run` stays `pending`, start the worker:
+
+```powershell
+docker compose up -d worker
 ```

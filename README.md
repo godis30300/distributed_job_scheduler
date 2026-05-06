@@ -18,24 +18,24 @@ It includes:
 
 ```text
 distributed_job_scheduler/
-├── backend/
-│   ├── app/
-│   │   ├── core/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── controllers/
-│   │   ├── routers/
-│   │   ├── services/
-│   │   └── main.py
-│   ├── database/
-│   │   ├── schema.sql
-│   │   ├── seed.sql
-│   │   └── migrations/
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-├── deploy/k8s/
-└── docker-compose.yml
+|-- backend/
+|   |-- app/
+|   |   |-- core/
+|   |   |-- models/
+|   |   |-- schemas/
+|   |   |-- controllers/
+|   |   |-- routers/
+|   |   |-- services/
+|   |   `-- main.py
+|   |-- database/
+|   |   |-- schema.sql
+|   |   |-- seed.sql
+|   |   `-- migrations/
+|   |-- requirements.txt
+|   `-- Dockerfile
+|-- frontend/
+|-- deploy/k8s/
+`-- docker-compose.yml
 ```
 
 ## Quick Start
