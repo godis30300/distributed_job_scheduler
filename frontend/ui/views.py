@@ -50,8 +50,8 @@ def login_view(request):
                 request.session['username'] = username
                 messages.success(request, '登入成功。')
                 return redirect('dashboard')
-            except BackendAPIError as exc:
-                messages.error(request, str(exc))
+            except BackendAPIError:
+                messages.error(request, '帳號或密碼錯誤。')
     else:
         form = LoginForm()
     return render(request, 'ui/login.html', {'form': form})
@@ -73,8 +73,8 @@ def register_view(request):
                 BackendAPIClient().register(payload)
                 messages.success(request, '註冊成功，請登入。')
                 return redirect('login')
-            except BackendAPIError as exc:
-                messages.error(request, str(exc))
+            except BackendAPIError:
+                messages.error(request, '註冊失敗，請稍後再試。')
     else:
         form = RegisterForm()
     return render(request, 'ui/register.html', {'form': form})
