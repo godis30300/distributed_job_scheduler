@@ -7,5 +7,7 @@
     <p class="muted">查看任務執行紀錄、Log 與 Retry。</p>
   </div>
 </div>
-{% include 'ui/partials/run_table.html' with runs=runs %}
+<div id="run-table-container" hx-get="{% url 'job_runs_partial' %}" hx-trigger="every 5s" hx-swap="innerHTML">
+  {% include 'ui/partials/run_table.html' with runs=runs %}
+</div>
 {% endblock %}

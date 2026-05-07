@@ -8,5 +8,7 @@
   </div>
   <a class="btn primary" href="{% url 'job_create' %}">建立 Job</a>
 </div>
-{% include 'ui/partials/job_table.html' with jobs=jobs %}
+<div id="job-table-container" hx-get="{% url 'job_list_partial' %}" hx-trigger="every 5s" hx-swap="innerHTML">
+  {% include 'ui/partials/job_table.html' with jobs=jobs %}
+</div>
 {% endblock %}

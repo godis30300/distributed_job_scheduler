@@ -123,6 +123,19 @@ def job_list_view(request):
     return render(request, 'ui/job_list.html', {'jobs': jobs})
 
 
+def job_list_partial_view(request):
+    redirect_response = _require_login(request)
+    if redirect_response:
+        from django.http import HttpResponse
+        return HttpResponse('')
+    try:
+        jobs = demo_store.list_jobs(request) if settings.DEMO_MODE else _client(request).list_jobs()
+        jobs = jobs if isinstance(jobs, list) else jobs.get('items', [])
+    except BackendAPIError:
+        jobs = []
+    return render(request, 'ui/partials/job_table.html', {'jobs': jobs})
+
+
 @require_http_methods(['GET', 'POST'])
 def job_create_view(request):
     redirect_response = _require_login(request)
@@ -238,6 +251,19 @@ def job_runs_view(request):
         messages.error(request, str(exc))
         runs = []
     return render(request, 'ui/job_runs.html', {'runs': runs})
+
+
+def job_runs_partial_view(request):
+    redirect_response = _require_login(request)
+    if redirect_response:
+        from django.http import HttpResponse
+        return HttpResponse('')
+    try:
+        runs = demo_store.list_runs(request) if settings.DEMO_MODE else _client(request).list_job_runs()
+        runs = runs if isinstance(runs, list) else runs.get('items', [])
+    except BackendAPIError:
+        runs = []
+    return render(request, 'ui/partials/run_table.html', {'runs': runs})
 
 
 def job_run_logs_view(request, run_id):
