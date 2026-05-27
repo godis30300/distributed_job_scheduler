@@ -107,6 +107,7 @@ class JobUpdate(BaseModel):
 
 class JobResponse(JobBase):
     id: str
+    user: str
     created_by: str | None
     action_type: str
     action_payload: dict[str, Any]

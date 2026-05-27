@@ -17,7 +17,11 @@ class JobRunResponse(BaseModel):
     end_time: datetime | None
     heartbeat_at: datetime | None
     duration_seconds: int | None
+    duration: int | None
     retry_count: int
+    task_name: str
+    action: str
+    user: str
     action_type: str
     action_payload: dict[str, Any] | None
     timeout_seconds: int

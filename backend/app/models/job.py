@@ -86,3 +86,11 @@ class Job(Base):
 
     creator = relationship("User", back_populates="jobs")
     runs = relationship("JobRun", back_populates="job", cascade="all, delete-orphan")
+
+    @property
+    def user(self) -> str:
+        return self.creator.username if self.creator else "system"
+
+    @property
+    def created_by(self) -> str:
+        return self.user

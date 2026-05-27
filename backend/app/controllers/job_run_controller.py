@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.job import Job
 from app.models.job_log import JobLog
@@ -21,7 +21,7 @@ def list_job_runs(
     limit: int = 100,
     offset: int = 0,
 ) -> list[JobRun]:
-    query = db.query(JobRun)
+    query = db.query(JobRun).options(joinedload(JobRun.job))
     if status:
         query = query.filter(JobRun.status == status)
     if user_id:

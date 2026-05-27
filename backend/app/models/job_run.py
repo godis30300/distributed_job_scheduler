@@ -66,3 +66,23 @@ class JobRun(Base):
 
     job = relationship("Job", back_populates="runs")
     logs = relationship("JobLog", back_populates="run", cascade="all, delete-orphan")
+
+    @property
+    def task_name(self) -> str:
+        return self.job.task_name if self.job else "Unknown"
+
+    @property
+    def action(self) -> str:
+        return self.action_type
+
+    @property
+    def duration(self) -> int | None:
+        return self.duration_seconds
+
+    @property
+    def user(self) -> str:
+        # If triggered_by is 'scheduler', it might not have a specific user context in the run record
+        # but we can fallback to the job's creator.
+        if self.triggered_by == "scheduler" and self.job:
+            return self.job.user
+        return self.triggered_by if self.triggered_by else "system"

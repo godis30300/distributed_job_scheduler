@@ -71,4 +71,4 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 BACKEND_API_URL = os.getenv('BACKEND_API_URL', 'http://localhost:8000/api').rstrip('/')
-DEMO_MODE = os.getenv('DEMO_MODE', 'True').lower() == 'true'
+DEMO_MODE = os.getenv('DEMO_MODE', 'False').lower() == 'true'
