@@ -14,6 +14,10 @@ class JobRun(Base):
             "status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled')",
             name="ck_job_runs_status",
         ),
+        CheckConstraint(
+            "trigger_type IN ('schedule', 'manual', 'api', 'retry', 'dependency')",
+            name="ck_job_runs_trigger_type",
+        ),
         CheckConstraint("retry_count >= 0", name="ck_job_runs_retry_count_nonnegative"),
         CheckConstraint(
             "action_type IN ('api_call', 'shell', 'report', 'email', 'backup', 'fail-test', 'long-task')",
@@ -27,6 +31,12 @@ class JobRun(Base):
         Index("idx_job_runs_start_time", "start_time"),
         Index("idx_job_runs_job_status_created_at", "job_id", "status", "created_at"),
         Index("idx_job_runs_locked_until", "locked_until"),
+        Index("idx_job_runs_pending_queue", "created_at", postgresql_where=text("status = 'pending'")),
+        Index(
+            "idx_job_runs_running_locks",
+            "locked_until",
+            postgresql_where=text("status = 'running' AND locked_until IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

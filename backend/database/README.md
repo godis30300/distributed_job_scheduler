@@ -1,5 +1,11 @@
 # PostgreSQL / Log / DB Controller
 
+主要串接文件請看 [API_DB_INTEGRATION.md](API_DB_INTEGRATION.md)。
+
+本目錄是 Distributed Asynchronous Job Scheduler 的資料庫交付範圍，對應作業題目中的任務註冊、排程派發、worker queue、log、結果回報、重試、故障轉移、任務相依性。
+
+# 杰霖｜PostgreSQL / Log / DB Controller
+
 This folder owns the database contract used by the FastAPI routes, scheduler,
 worker, UI log viewer, and Kubernetes/PostgreSQL deployment.
 

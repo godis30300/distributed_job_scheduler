@@ -1,8 +1,12 @@
 # Distributed Asynchronous Job Scheduler
 
-Class-project full-stack skeleton for a distributed asynchronous job scheduler.
+DB 串接文件：`backend/database/API_DB_INTEGRATION.md`
 
-It includes:
+PostgreSQL schema：`backend/database/schema.sql`
+
+DB 已支援作業需求中的 queue lock、log、retry、dependency、failover heartbeat 與 worker 水平擴展。
+
+這是一個可實作課堂專題的全端骨架，符合：
 
 - Python FastAPI backend
 - Model / controller / router layering
