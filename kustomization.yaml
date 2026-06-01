@@ -10,12 +10,5 @@ resources:
   - deploy/k8s/05-frontend.yaml
   - deploy/k8s/06-ingress-example.yaml
 
-configMapGenerator:
-  - name: postgres-init-sql
-    namespace: job-scheduler
-    files:
-      - 01-schema.sql=backend/database/schema.sql
-      - 02-seed.sql=backend/database/seed.sql
-
 generatorOptions:
   disableNameSuffixHash: true

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: registry.example.com/job-scheduler-backend:latest
+          image: job-scheduler-backend:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:
