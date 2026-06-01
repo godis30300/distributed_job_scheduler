@@ -2,8 +2,8 @@
 
 INSERT INTO users (id, username, email, password_hash, role, created_at)
 VALUES
-    ('00000000-0000-0000-0000-000000000001', 'admin', 'admin@example.com', '$2b$12$demo.admin.hash', 'admin', now()),
-    ('00000000-0000-0000-0000-000000000002', 'jielin', 'jielin@example.com', '$2b$12$demo.jielin.hash', 'operator', now())
+    ('00000000-0000-0000-0000-000000000001', 'admin', 'admin@example.com', '$2b$12$idUia.TknmJX2Seo2BNgvOpRWjixQLE7h5wQPiMHCuM8l6aBYa9ra', 'admin', now()),
+    ('00000000-0000-0000-0000-000000000002', 'jielin', 'jielin@example.com', '$2b$12$RVKJAsDuqypRy48usuWEoOhz/DRHdW9.noqq8nrd8SdUwGqFDYrQW', 'operator', now())
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO jobs (
