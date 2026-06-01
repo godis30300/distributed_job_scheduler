@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler
       JWT_SECRET_KEY: change-me-in-production
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      PYTHONUNBUFFERED: "1"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
@@ -40,6 +41,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler
       JWT_SECRET_KEY: change-me-in-production
+      PYTHONUNBUFFERED: "1"
     command: python -m app.services.scheduler_loop
     volumes:
       - ./backend:/app
@@ -56,6 +58,7 @@ services:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler
       JWT_SECRET_KEY: change-me-in-production
       WORKER_ID: worker-compose-1
+      PYTHONUNBUFFERED: "1"
     command: python -m app.services.worker_loop
     volumes:
       - ./backend:/app
@@ -70,6 +73,7 @@ services:
       context: ./frontend
     environment:
       BACKEND_API_URL: http://backend:8000/api
+      PYTHONUNBUFFERED: "1"
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./frontend:/app

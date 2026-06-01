@@ -28,6 +28,7 @@ def main():
             action_payload = run.action_payload if run.action_payload is not None else job.action_payload
             timeout_seconds = run.timeout_seconds or job.timeout_seconds
             add_log(db, run.id, "INFO", f"Start executing job: {job.task_name} ({run.action_type})")
+            print(f"[worker] executing run {run.id}: {job.task_name}")
 
             result = asyncio.run(execute_job(run.action_type, action_payload, timeout_seconds))
 
@@ -36,6 +37,7 @@ def main():
             if stderr.startswith("timeout after"):
                 finish_status = "timeout"
 
+            print(f"[worker] finished run {run.id}: {finish_status}")
             finish_run(
                 db,
                 run.id,
