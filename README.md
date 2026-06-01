@@ -151,6 +151,29 @@ Cron expressions are also supported, for example:
 | GET | `/api/system/health` | Health check |
 | GET | `/api/metrics` | Prometheus metrics |
 
+## Static Code Analysis (SonarQube)
+
+The project includes a SonarQube instance for static code analysis.
+
+### Setup & Scan
+
+1. **Start SonarQube Server**:
+   ```bash
+   docker compose up -d sonarqube
+   ```
+2. **Run Scanner**:
+   ```bash
+   ./run-sonar.sh
+   ```
+
+### Access Results
+
+- **URL**: [http://localhost:9000](http://localhost:9000)
+- **Project**: `distributed-job-scheduler`
+- **Credentials**:
+  - **Username**: `admin`
+  - **Password**: `AdminPassword123!`
+
 ## Kubernetes
 
 Use kustomize from the repository root so PostgreSQL receives the schema and
