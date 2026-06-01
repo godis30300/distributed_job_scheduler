@@ -1,5 +1,18 @@
+# Core Framework
 Django>=5.0,<6.0
+
+# API Communication
 requests>=2.31.0
+
+# Environment and Configuration
 python-dotenv>=1.0.0
+dj-database-url>=2.1.0
+
+# Static File Management
 whitenoise>=6.6.0
+
+# Production Server
 gunicorn>=21.2.0
+
+# Database Drivers (SQLite is built-in, add Postgres for production/K8s persistence)
+psycopg2-binary>=2.9.9

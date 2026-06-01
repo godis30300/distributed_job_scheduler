@@ -3,13 +3,91 @@
 {% block content %}
 <section class="panel narrow">
   <h1>{% if mode == 'create' %}建立 Job{% else %}編輯 Job{% endif %}</h1>
-  <form method="post" class="form two-col">
+  <form method="post" class="form" id="job-form">
     {% csrf_token %}
-    {{ form.as_p }}
+
+    <div class="form-section">
+      <h3>任務動作</h3>
+      {{ form.task_name.label_tag }} {{ form.task_name }}
+      {{ form.description.label_tag }} {{ form.description }}
+
+      {{ form.action.label_tag }} {{ form.action }}
+
+      <div id="script-fields" class="sub-fields">
+        {{ form.working_dir.label_tag }} {{ form.working_dir }}
+        {{ form.shell_script.label_tag }} {{ form.shell_script }}
+        {{ form.script_content.label_tag }} {{ form.script_content }}
+      </div>
+
+      <div id="api-fields" class="sub-fields">
+        {{ form.api_method.label_tag }} {{ form.api_method }}
+        {{ form.api_url.label_tag }} {{ form.api_url }}
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>排程設定</h3>
+      {{ form.status.label_tag }} {{ form.status }}
+      {{ form.schedule_type.label_tag }} {{ form.schedule_type }}
+
+      <div id="cron-fields" class="sub-fields">
+        {{ form.cron_expression.label_tag }} {{ form.cron_expression }}
+      </div>
+
+      <div id="interval-fields" class="sub-fields">
+        {{ form.interval_seconds.label_tag }} {{ form.interval_seconds }}
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>進階設定</h3>
+      {{ form.timeout_seconds.label_tag }} {{ form.timeout_seconds }}
+      {{ form.retry_limit.label_tag }} {{ form.retry_limit }}
+    </div>
+
     <div class="form-actions">
       <button class="btn primary" type="submit">儲存</button>
       <a class="btn" href="{% url 'job_list' %}">取消</a>
     </div>
   </form>
-</section>
+  </section>
+
+  <style>
+  .form-section { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .form-section h3 { margin-bottom: 12px; color: var(--primary); font-size: 16px; }
+  .sub-fields { margin-left: 20px; padding: 12px; background: #f9fafb; border-radius: 8px; margin-top: 10px; border: 1px dashed #ddd; } 
+  .form label { display: block; margin-top: 12px; font-weight: 500; }
+  .form input, .form select, .form textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+  .form small { color: #666; font-size: 12px; }
+  </style>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const scheduleType = document.querySelector('[name="schedule_type"]');
+    const actionType = document.querySelector('[name="action"]');
+
+    function updateFields() {
+      // Schedule toggles
+      document.getElementById('cron-fields').style.display = scheduleType.value === 'cron' ? 'block' : 'none'; 
+      document.getElementById('interval-fields').style.display = scheduleType.value === 'interval' ? 'block' : 'none';
+
+      // Action toggles
+      const isScript = actionType.value === 'shell' || actionType.value === 'python_script';
+      document.getElementById('script-fields').style.display = isScript ? 'block' : 'none';
+      document.getElementById('api-fields').style.display = actionType.value === 'api_call' ? 'block' : 'none';
+
+      // Update script content placeholder based on type
+      const scriptArea = document.querySelector('[name="script_content"]');
+      if (actionType.value === 'python_script') {
+        scriptArea.placeholder = 'import sys\nprint("Hello from Python")';
+      } else {
+        scriptArea.placeholder = '#!/bin/bash\necho "Hello from Bash"';
+      }
+    }
+
+    scheduleType.addEventListener('change', updateFields);
+    actionType.addEventListener('change', updateFields);
+    updateFields();
+  });
+  </script>
 {% endblock %}
