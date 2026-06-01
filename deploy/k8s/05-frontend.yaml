@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: job-scheduler-frontend:latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000

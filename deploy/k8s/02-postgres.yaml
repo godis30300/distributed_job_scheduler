@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: job-scheduler-db:latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/db:latest
           env:
             - name: POSTGRES_DB
               value: jobscheduler
