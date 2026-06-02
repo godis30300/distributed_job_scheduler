@@ -29,11 +29,19 @@ class BackendAPIClient:
             raise BackendAPIError(f'Cannot connect backend API: {exc}') from exc
 
         if response.status_code >= 400:
+            error_msg = f'系統錯誤 ({response.status_code})'
+            try:
+                data = response.json()
+                if isinstance(data, dict) and 'detail' in data:
+                    error_msg = data['detail']
+            except Exception:
+                pass
+
             if response.status_code == 401:
-                raise BackendAPIError('驗證失敗（帳號或密碼錯誤）。')
+                raise BackendAPIError(error_msg if error_msg != f'系統錯誤 ({response.status_code})' else '驗證失敗（帳號或密碼錯誤）。')
             if response.status_code == 404:
-                raise BackendAPIError('找不到要求的資源。')
-            raise BackendAPIError(f'系統錯誤 ({response.status_code})')
+                raise BackendAPIError(error_msg if error_msg != f'系統錯誤 ({response.status_code})' else '找不到要求的資源。')
+            raise BackendAPIError(error_msg)
 
         if response.status_code == 204 or not response.content:
             return {}

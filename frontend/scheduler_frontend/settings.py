@@ -1,13 +1,14 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-secret-key')
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '*').split(',') if h.strip()]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -53,10 +54,11 @@ WSGI_APPLICATION = 'scheduler_frontend.wsgi.application'
 ASGI_APPLICATION = 'scheduler_frontend.asgi.application'
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 LANGUAGE_CODE = 'zh-hant'
