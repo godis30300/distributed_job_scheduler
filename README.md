@@ -95,19 +95,38 @@ Shell job:
 
 ```json
 {
-  "task_name": "run-cleanup-script",
-  "action_type": "shell",
-  "action_payload": {
-    "script": "hello.sh",
-    "args": []
-  },
-  "schedule_rule": "every:10m",
-  "timeout_seconds": 120,
-  "max_retry": 2
+  "name": "free-shell-job",
+  "task_type": "shell",
+  "script": "echo hello from user input",
+  "description": "Run a Linux shell script entered by the user",
+  "working_dir": "free-shell-job",
+  "schedule_type": "manual",
+  "timeout_seconds": 30,
+  "retry_limit": 1,
+  "status": "enabled"
 }
 ```
 
-Shell actions are restricted to scripts under `backend/scripts`.
+Python job:
+
+```json
+{
+  "name": "free-python-job",
+  "task_type": "python",
+  "script": "print('hello from python')",
+  "description": "Run a Python script entered by the user",
+  "working_dir": "free-python-job",
+  "schedule_type": "manual",
+  "timeout_seconds": 30,
+  "retry_limit": 1,
+  "status": "enabled"
+}
+```
+
+The newer job API accepts `id`, `name`, `task_type`, `script`, `description`,
+`working_dir`, and log output through `job_runs` / `job_logs`. Older fields
+such as `task_name`, `action`, `action_type`, `action_payload`, `retry_limit`,
+and `max_retry` remain supported for team integration.
 
 ## Schedule Rules
 
@@ -148,8 +167,33 @@ Cron expressions are also supported, for example:
 | POST | `/api/workers/pull` | Pull and lock one pending run |
 | POST | `/api/workers/{run_id}/finish` | Finish run and save output |
 | GET | `/api/dashboard/summary` | Dashboard summary |
+| GET | `/api/health` | Health check alias |
 | GET | `/api/system/health` | Health check |
 | GET | `/api/metrics` | Prometheus metrics |
+
+## Duration
+
+`job_runs` stores both:
+
+- `duration_seconds_decimal`: precise seconds with milliseconds, for example `0.023`.
+- `duration_ms`: precise millisecond duration for fast container jobs.
+- `duration_seconds`: rounded up to at least `1` second for old clients.
+
+The frontend displays `run.duration`, which uses `duration_seconds_decimal`, so
+fast shell/python tasks show values such as `0.023s` instead of `0s`.
+
+## Monitoring
+
+Prometheus scrapes `/api/metrics` for application metrics, including job run
+counts by status. Kubernetes/cAdvisor and kube-state-metrics are configured in
+`deploy/k8s/07-monitoring.yaml` for:
+
+- container CPU: `container_cpu_usage_seconds_total`
+- container memory: `container_memory_working_set_bytes`
+- pod restarts: `kube_pod_container_status_restarts_total`
+
+The same file also includes a Grafana dashboard ConfigMap for pending/running
+jobs, CPU, memory, and pod restart panels.
 
 ## Static Code Analysis (SonarQube)
 

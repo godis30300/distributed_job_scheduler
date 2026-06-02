@@ -17,14 +17,19 @@ worker, UI log viewer, and Kubernetes/PostgreSQL deployment.
 - `migrations/002_db_integration_fields.sql`: legacy API/UI alignment.
 - `migrations/003_job_run_snapshots_and_indexes.sql`: job run action snapshots,
   query indexes, and DB-level `updated_at` triggers.
+- `migrations/004_task_fields_duration_metrics.sql`: task `name`,
+  `task_type`, `script`, `working_dir`, and millisecond duration support.
 
 ## Tables
 
 - `users`: login identity used by auth and job ownership.
-- `jobs`: job definition, schedule, action, retry limit, timeout, and next run.
+- `jobs`: job definition, schedule, action, retry limit, timeout, script,
+  working directory, and next run.
 - `job_runs`: immutable execution snapshot for every scheduled/manual/retry run.
-  Each run stores `action_type`, `action_payload`, and `timeout_seconds` so a
-  queued/history run does not change behavior when the source job is edited.
+  Each run stores `task_type`, `script`, `working_dir`, `action_type`,
+  `action_payload`, `timeout_seconds`, `duration_seconds_decimal`,
+  `duration_seconds`, and `duration_ms`. Use `duration_seconds_decimal` for UI
+  display, so fast tasks can show `0.023s` instead of `0s`.
 - `job_logs`: stdout, stderr, and system log messages for UI/API search.
 - `job_dependencies`: dependency graph between jobs.
 
@@ -78,6 +83,7 @@ From the repository root:
 Get-Content -Raw backend\database\schema.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 Get-Content -Raw backend\database\seed.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 Get-Content -Raw backend\database\migrations\003_job_run_snapshots_and_indexes.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 ```
 
 For a fresh Docker Compose database, `schema.sql` and `seed.sql` are mounted

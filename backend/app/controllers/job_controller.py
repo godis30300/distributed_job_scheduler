@@ -39,19 +39,38 @@ def _normalize_status(status: str | None, enabled: bool | None = None) -> str:
     return status or "enabled"
 
 
+def _normalize_action_payload(payload: dict, script: str | None, working_dir: str | None) -> dict:
+    normalized = dict(payload or {})
+    if script is not None:
+        normalized["script"] = script
+    if working_dir is not None:
+        normalized["working_dir"] = working_dir
+    return normalized
+
+
 def create_job(db: Session, payload: JobCreate, current_user: User) -> Job:
-    existing = db.query(Job).filter(Job.task_name == payload.task_name).first()
+    task_name = payload.task_name or payload.name
+    action_type = payload.action or payload.task_type
+    if not task_name or not action_type:
+        raise HTTPException(status_code=400, detail="name/task_name and task_type/action are required")
+
+    existing = db.query(Job).filter(Job.task_name == task_name).first()
     if existing:
         raise HTTPException(status_code=409, detail="Job task_name already exists")
 
     schedule_rule = _schedule_rule(payload.schedule_type, payload.cron_expression, payload.interval_seconds)
     status = _normalize_status(payload.status, payload.enabled)
     next_run_at = _next_run_at(schedule_rule) if status == "enabled" else None
+    action_payload = _normalize_action_payload(payload.action_payload, payload.script, payload.working_dir)
 
     job = Job(
-        task_name=payload.task_name,
-        action_type=payload.action,
-        action_payload=payload.action_payload,
+        name=payload.name or task_name,
+        task_name=task_name,
+        task_type=payload.task_type or action_type,
+        script=payload.script,
+        working_dir=payload.working_dir,
+        action_type=action_type,
+        action_payload=action_payload,
         schedule_rule=schedule_rule,
         timeout_seconds=payload.timeout_seconds,
         max_retry=payload.retry_limit,
@@ -105,8 +124,16 @@ def update_job(db: Session, job_id: str, payload: JobUpdate) -> Job:
 
     if "action" in data:
         data["action_type"] = data.pop("action")
+    if "task_type" in data and "action_type" not in data:
+        data["action_type"] = data["task_type"]
     if "retry_limit" in data:
         data["max_retry"] = data.pop("retry_limit")
+    if any(key in data for key in ("script", "working_dir", "action_payload")):
+        data["action_payload"] = _normalize_action_payload(
+            data.get("action_payload", job.action_payload),
+            data.get("script", job.script),
+            data.get("working_dir", job.working_dir),
+        )
     if "enabled" in data or "status" in data:
         status = _normalize_status(data.get("status", job.status), data.get("enabled"))
         data["status"] = status
@@ -157,6 +184,9 @@ def trigger_job(db: Session, job_id: str, current_user: User | None = None, trig
         status="pending",
         trigger_type=trigger_type,
         triggered_by=trigger_type,
+        task_type=job.task_type or job.action_type,
+        script=job.script,
+        working_dir=job.working_dir,
         action_type=job.action_type,
         action_payload=job.action_payload,
         timeout_seconds=job.timeout_seconds,

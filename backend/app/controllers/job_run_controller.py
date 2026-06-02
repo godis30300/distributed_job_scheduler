@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from math import ceil
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -11,6 +12,15 @@ from app.models.user import User
 
 TERMINAL_STATUSES = {"success", "failed", "timeout", "canceled"}
 VALID_RUN_STATUSES = {"pending", "running", "success", "failed", "timeout", "canceled"}
+
+
+def _set_duration(run: JobRun, end_time: datetime) -> None:
+    if not run.start_time:
+        return
+    elapsed = max(0.001, (end_time - run.start_time).total_seconds())
+    run.duration_ms = max(1, int(round(elapsed * 1000)))
+    run.duration_seconds_decimal = round(run.duration_ms / 1000, 3)
+    run.duration_seconds = max(1, int(ceil(elapsed)))
 
 
 def list_job_runs(
@@ -57,6 +67,9 @@ def create_job_run(
         trigger_type=triggered_by,
         triggered_by=triggered_by,
         retry_count=retry_count,
+        task_type=job.task_type or job.action_type,
+        script=job.script,
+        working_dir=job.working_dir,
         action_type=job.action_type,
         action_payload=job.action_payload,
         timeout_seconds=job.timeout_seconds,
@@ -91,8 +104,7 @@ def update_job_run_status(
         run.heartbeat_at = now
         run.locked_by = None
         run.locked_until = None
-        if run.start_time:
-            run.duration_seconds = int((now - run.start_time).total_seconds())
+        _set_duration(run, now)
 
     if stdout is not None:
         run.stdout = stdout
@@ -126,6 +138,9 @@ def retry_job_run(db: Session, run_id: str, current_user: User | None = None) ->
         trigger_type="retry",
         triggered_by="retry",
         retry_count=run.retry_count + 1,
+        task_type=run.task_type if run.task_type else (run.job.task_type or run.job.action_type),
+        script=run.script if run.script is not None else run.job.script,
+        working_dir=run.working_dir if run.working_dir is not None else run.job.working_dir,
         action_type=run.action_type if run.action_type else run.job.action_type,
         action_payload=run.action_payload if run.action_payload is not None else run.job.action_payload,
         timeout_seconds=run.timeout_seconds if run.timeout_seconds else run.job.timeout_seconds,
@@ -150,8 +165,7 @@ def cancel_job_run(db: Session, run_id: str) -> JobRun:
     run.end_time = now
     run.locked_by = None
     run.locked_until = None
-    if run.start_time:
-        run.duration_seconds = int((now - run.start_time).total_seconds())
+    _set_duration(run, now)
     db.add(JobLog(job_run_id=run.id, log_level="warning", stream="system", message="Run canceled by user"))
     db.commit()
     db.refresh(run)

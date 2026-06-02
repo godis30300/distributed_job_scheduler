@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from math import ceil
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -121,6 +122,15 @@ def add_log(db: Session, run_id: str, level: str, message: str, stream: str = "s
     return log
 
 
+def _set_duration(run: JobRun, end_time: datetime) -> None:
+    if not run.start_time:
+        return
+    elapsed = max(0.001, (end_time - run.start_time).total_seconds())
+    run.duration_ms = max(1, int(round(elapsed * 1000)))
+    run.duration_seconds_decimal = round(run.duration_ms / 1000, 3)
+    run.duration_seconds = max(1, int(ceil(elapsed)))
+
+
 def finish_run(
     db: Session,
     run_id: str,
@@ -153,8 +163,7 @@ def finish_run(
         run.stderr = stderr
         if stderr:
             db.add(JobLog(job_run_id=run.id, log_level="error", stream="stderr", message=stderr))
-    if run.start_time:
-        run.duration_seconds = int((now - run.start_time).total_seconds())
+    _set_duration(run, now)
 
     level = "info" if status == "success" else "error"
     db.add(JobLog(job_run_id=run.id, log_level=level, stream="system", message=f"Run finished: {status}"))

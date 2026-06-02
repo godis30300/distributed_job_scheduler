@@ -26,11 +26,17 @@ def main():
 
             job = run.job
             action_payload = run.action_payload if run.action_payload is not None else job.action_payload
+            action_payload = dict(action_payload or {})
+            if run.script is not None:
+                action_payload["script"] = run.script
+            if run.working_dir is not None:
+                action_payload["working_dir"] = run.working_dir
             timeout_seconds = run.timeout_seconds or job.timeout_seconds
-            add_log(db, run.id, "INFO", f"Start executing job: {job.task_name} ({run.action_type})")
+            task_type = run.task_type or run.action_type
+            add_log(db, run.id, "INFO", f"Start executing job: {job.task_name} ({task_type})")
             print(f"[worker] executing run {run.id}: {job.task_name}")
 
-            result = asyncio.run(execute_job(run.action_type, action_payload, timeout_seconds))
+            result = asyncio.run(execute_job(task_type, action_payload, timeout_seconds))
 
             stderr = result.get("stderr") or ""
             finish_status = "success" if result.get("success") else "failed"

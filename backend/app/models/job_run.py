@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, text
+from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -20,8 +20,12 @@ class JobRun(Base):
         ),
         CheckConstraint("retry_count >= 0", name="ck_job_runs_retry_count_nonnegative"),
         CheckConstraint(
-            "action_type IN ('api_call', 'shell', 'report', 'email', 'backup', 'fail-test', 'long-task')",
+            "action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')",
             name="ck_job_runs_action_type",
+        ),
+        CheckConstraint(
+            "task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')",
+            name="ck_job_runs_task_type",
         ),
         CheckConstraint("timeout_seconds > 0", name="ck_job_runs_timeout_positive"),
         Index("idx_job_runs_status_created_at", "status", "created_at"),
@@ -31,6 +35,7 @@ class JobRun(Base):
         Index("idx_job_runs_start_time", "start_time"),
         Index("idx_job_runs_job_status_created_at", "job_id", "status", "created_at"),
         Index("idx_job_runs_locked_until", "locked_until"),
+        Index("idx_job_runs_task_type_created_at", "task_type", "created_at"),
         Index("idx_job_runs_pending_queue", "created_at", postgresql_where=text("status = 'pending'")),
         Index(
             "idx_job_runs_running_locks",
@@ -56,7 +61,12 @@ class JobRun(Base):
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duration_seconds_decimal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    task_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    script: Mapped[str | None] = mapped_column(Text, nullable=True)
+    working_dir: Mapped[str | None] = mapped_column(Text, nullable=True)
     action_type: Mapped[str] = mapped_column(String(40), nullable=False)
     action_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     timeout_seconds: Mapped[int] = mapped_column(Integer, default=300, nullable=False)
@@ -86,7 +96,11 @@ class JobRun(Base):
         return self.action_type
 
     @property
-    def duration(self) -> int | None:
+    def duration(self) -> float | int | None:
+        if self.duration_seconds_decimal is not None:
+            return self.duration_seconds_decimal
+        if self.duration_ms is not None:
+            return round(self.duration_ms / 1000, 3)
         return self.duration_seconds
 
     @property

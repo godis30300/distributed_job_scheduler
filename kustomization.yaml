@@ -9,6 +9,7 @@ resources:
   - deploy/k8s/04-scheduler-worker.yaml
   - deploy/k8s/05-frontend.yaml
   - deploy/k8s/06-ingress-example.yaml
+  - deploy/k8s/07-monitoring.yaml
 
 generatorOptions:
   disableNameSuffixHash: true

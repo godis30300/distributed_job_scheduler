@@ -16,7 +16,11 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS jobs (
     id VARCHAR(36) PRIMARY KEY,
     user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+    name VARCHAR(120),
     task_name VARCHAR(120) NOT NULL UNIQUE,
+    task_type VARCHAR(40),
+    script TEXT,
+    working_dir TEXT,
     action_type VARCHAR(40) NOT NULL,
     action_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
     schedule_rule VARCHAR(120) NOT NULL,
@@ -29,7 +33,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     last_run_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_jobs_action_type CHECK (action_type IN ('api_call', 'shell', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+    CONSTRAINT ck_jobs_action_type CHECK (action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+    CONSTRAINT ck_jobs_task_type CHECK (task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
     CONSTRAINT ck_jobs_status CHECK (status IN ('enabled', 'active', 'paused', 'disabled', 'deleted')),
     CONSTRAINT ck_jobs_timeout_positive CHECK (timeout_seconds > 0),
     CONSTRAINT ck_jobs_max_retry_nonnegative CHECK (max_retry >= 0)
@@ -49,7 +54,12 @@ CREATE TABLE IF NOT EXISTS job_runs (
     end_time TIMESTAMPTZ,
     heartbeat_at TIMESTAMPTZ,
     duration_seconds INTEGER,
+    duration_seconds_decimal DOUBLE PRECISION,
+    duration_ms INTEGER,
     retry_count INTEGER NOT NULL DEFAULT 0,
+    task_type VARCHAR(40),
+    script TEXT,
+    working_dir TEXT,
     action_type VARCHAR(40) NOT NULL,
     action_payload JSONB,
     timeout_seconds INTEGER NOT NULL DEFAULT 300,
@@ -61,7 +71,8 @@ CREATE TABLE IF NOT EXISTS job_runs (
     CONSTRAINT ck_job_runs_status CHECK (status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled')),
     CONSTRAINT ck_job_runs_trigger_type CHECK (trigger_type IN ('schedule', 'manual', 'api', 'retry', 'dependency')),
     CONSTRAINT ck_job_runs_retry_count_nonnegative CHECK (retry_count >= 0),
-    CONSTRAINT ck_job_runs_action_type CHECK (action_type IN ('api_call', 'shell', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+    CONSTRAINT ck_job_runs_action_type CHECK (action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+    CONSTRAINT ck_job_runs_task_type CHECK (task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
     CONSTRAINT ck_job_runs_timeout_positive CHECK (timeout_seconds > 0)
 );
 
@@ -93,6 +104,8 @@ CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_jobs_next_run_at ON jobs(next_run_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_task_name ON jobs(task_name);
+CREATE INDEX IF NOT EXISTS idx_jobs_name ON jobs(name);
+CREATE INDEX IF NOT EXISTS idx_jobs_task_type ON jobs(task_type);
 CREATE INDEX IF NOT EXISTS idx_jobs_due_schedule
     ON jobs(next_run_at)
     WHERE enabled = TRUE AND status IN ('enabled', 'active') AND next_run_at IS NOT NULL;
@@ -105,6 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_job_runs_user_id ON job_runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_job_runs_user_start_time ON job_runs(user_id, start_time);
 CREATE INDEX IF NOT EXISTS idx_job_runs_start_time ON job_runs(start_time);
 CREATE INDEX IF NOT EXISTS idx_job_runs_locked_until ON job_runs(locked_until);
+CREATE INDEX IF NOT EXISTS idx_job_runs_task_type_created_at ON job_runs(task_type, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_runs_running_locks
     ON job_runs(locked_until)
     WHERE status = 'running' AND locked_until IS NOT NULL;
@@ -140,7 +154,9 @@ CREATE OR REPLACE FUNCTION set_job_run_duration_seconds()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.start_time IS NOT NULL AND NEW.end_time IS NOT NULL THEN
-        NEW.duration_seconds = GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NEW.end_time - NEW.start_time)))::INTEGER);
+        NEW.duration_ms = GREATEST(1, CEIL(EXTRACT(EPOCH FROM (NEW.end_time - NEW.start_time)) * 1000)::INTEGER);
+        NEW.duration_seconds_decimal = ROUND((NEW.duration_ms / 1000.0)::numeric, 3)::DOUBLE PRECISION;
+        NEW.duration_seconds = GREATEST(1, CEIL(EXTRACT(EPOCH FROM (NEW.end_time - NEW.start_time)))::INTEGER);
     END IF;
     RETURN NEW;
 END;

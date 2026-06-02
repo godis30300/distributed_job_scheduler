@@ -30,7 +30,13 @@
         </td>
         <td>{{ run.action }}</td>
         <td>{{ run.start_time }}</td>
-        <td>{{ run.duration }}s</td>
+        <td>
+          {% if run.duration is not None %}
+            {{ run.duration }}s
+          {% else %}
+            -
+          {% endif %}
+        </td>
         <td>{{ run.triggered_by }}</td>
         <td class="actions">
           <a class="btn small" href="{% url 'job_run_logs' run.id %}">Logs</a>

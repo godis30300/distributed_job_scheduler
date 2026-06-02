@@ -17,8 +17,13 @@ class JobRunResponse(BaseModel):
     end_time: datetime | None
     heartbeat_at: datetime | None
     duration_seconds: int | None
-    duration: int | None
+    duration_seconds_decimal: float | None
+    duration_ms: int | None
+    duration: float | int | None
     retry_count: int
+    task_type: str | None
+    script: str | None
+    working_dir: str | None
     task_name: str
     action: str
     user: str
