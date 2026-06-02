@@ -58,18 +58,21 @@ Endpoints:
 For a fresh Postgres volume, Docker Compose automatically runs:
 
 - `backend/database/schema.sql`
-- `backend/database/seed.sql`
+- `backend/database/seed.sql` (intentionally creates no default accounts)
 
 If the `postgres-data` volume already exists, apply migrations manually with
-`psql` or recreate the volume for a clean demo database.
+`psql` or recreate the volume for a clean database.
 
 ## Register a User
 
 ```bash
 curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123","role":"admin"}'
+  -d '{"username":"operator1","email":"operator1@example.com","password":"strongpass123","role":"operator"}'
 ```
+
+The database does not ship default users or passwords. Registration stores a
+real bcrypt hash in `users.password_hash`; plaintext passwords are never seeded.
 
 ## Job Payload Examples
 
@@ -203,6 +206,7 @@ Run from the repository root after starting Docker Compose:
 docker compose up -d --build db backend worker frontend
 Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 Get-Content -Raw backend\database\migrations\005_db_controller_functions.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\006_remove_fixed_seed_data.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 docker compose exec -T backend python scripts/db_smoke_test.py
 docker compose exec -T backend python scripts/api_scenario_test.py
 docker compose config
@@ -263,7 +267,7 @@ ConfigMap to `/docker-entrypoint-initdb.d` and stores data in a PVC.
 | Ruiqian | Environment / Kubernetes / monitoring | `deploy/`, `docker-compose.yml`, system router |
 | Qiyou | Python API / auth / routes | `backend/app/controllers/auth_controller.py`, `backend/app/controllers/job_controller.py`, `backend/app/routers/` |
 | Zhenyuan | Job Controller / worker / task execution | `backend/app/services/worker_loop.py`, `backend/app/services/scheduler_loop.py`, `backend/Dockerfile` |
-| Jielin | PostgreSQL / log / DB controller | `backend/database/`, `backend/app/models/`, `backend/app/controllers/job_run_controller.py`, `backend/app/controllers/queue_controller.py` |
+| DB owner | PostgreSQL / log / DB controller | `backend/database/`, `backend/app/models/`, `backend/app/controllers/job_run_controller.py`, `backend/app/controllers/queue_controller.py` |
 | Zhengqing | UI / integration | `frontend/` |
 
 ## Production Hardening Still Needed

@@ -25,6 +25,7 @@ If the Postgres volume already existed, apply the newest migrations manually:
 ```powershell
 Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 Get-Content -Raw backend\database\migrations\005_db_controller_functions.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\006_remove_fixed_seed_data.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 ```
 
 For a fully clean database:
@@ -35,6 +36,10 @@ docker compose up -d --build db backend worker frontend
 ```
 
 ## 3. Verify Required DB Tables
+
+`seed.sql` intentionally creates no default users or jobs. Create real users
+through `POST /api/auth/register`; the backend stores bcrypt hashes in
+`users.password_hash`.
 
 ```powershell
 docker compose exec -T db psql -U postgres -d jobscheduler -c "\dt"

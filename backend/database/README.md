@@ -7,8 +7,9 @@ UI log viewer, Docker Compose, and Kubernetes PostgreSQL deployment.
 ## Files
 
 - `schema.sql`: canonical schema for a fresh PostgreSQL database.
-- `seed.sql`: demo users, jobs, job runs, logs, and dependency rows.
-- `migrations/001_init.sql`: initial class-demo initializer.
+- `seed.sql`: production seed placeholder. It intentionally creates no default
+  users, passwords, jobs, job runs, logs, or dependencies.
+- `migrations/001_init.sql`: initial standalone initializer.
 - `migrations/002_db_integration_fields.sql`: legacy API/UI alignment.
 - `migrations/003_job_run_snapshots_and_indexes.sql`: queue snapshots, indexes,
   and `updated_at` triggers.
@@ -16,6 +17,8 @@ UI log viewer, Docker Compose, and Kubernetes PostgreSQL deployment.
   `script`, `working_dir`, `duration_ms`, and `duration_seconds_decimal`.
 - `migrations/005_db_controller_functions.sql`: PostgreSQL DB controller
   functions for create, lock, status update, logs, search, and dependencies.
+- `migrations/006_remove_fixed_seed_data.sql`: removes old fixed seed accounts
+  and sample jobs from existing local databases.
 
 ## Required Tables
 
@@ -95,6 +98,7 @@ Apply migrations if the database volume already existed:
 ```powershell
 Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 Get-Content -Raw backend\database\migrations\005_db_controller_functions.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\006_remove_fixed_seed_data.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 ```
 
 Run the DB smoke test:
@@ -120,3 +124,7 @@ docker compose up -d --build db backend worker frontend
 
 When the PostgreSQL volume is empty, Docker runs `schema.sql` and `seed.sql`
 from `/docker-entrypoint-initdb.d` automatically.
+
+`seed.sql` does not insert users. Real accounts are created through
+`POST /api/auth/register`, and the backend stores bcrypt hashes in
+`users.password_hash`.

@@ -14,6 +14,7 @@ if str(BACKEND_ROOT) not in sys.path:
 from app.controllers.job_run_controller import search_job_logs
 from app.controllers.queue_controller import finish_run, lock_pending_job
 from app.core.database import SessionLocal, init_db
+from app.core.security import hash_password
 from app.models.job import Job
 from app.models.job_log import JobLog
 from app.models.job_run import JobRun
@@ -194,7 +195,7 @@ def ensure_smoke_user(db) -> User:
     user = User(
         username=SMOKE_USERNAME,
         email=SMOKE_EMAIL,
-        password_hash="db-smoke-not-for-login",
+        password_hash=hash_password("db-smoke-password"),
         role="operator",
     )
     db.add(user)

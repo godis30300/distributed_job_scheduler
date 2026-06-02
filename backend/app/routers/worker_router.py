@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.controllers.queue_controller import dequeue_next_run, finish_run, heartbeat
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.job_run import JobRun
 from app.models.user import User
 from app.schemas.job_run_schema import StatusUpdateRequest
 
@@ -11,8 +12,15 @@ router = APIRouter(prefix="/workers", tags=["workers"])
 
 
 @router.get("")
-def list_workers(_: User = Depends(get_current_user)):
-    return [{"worker_id": "worker-demo", "status": "running"}]
+def list_workers(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    worker_ids = (
+        db.query(JobRun.worker_id)
+        .filter(JobRun.status == "running")
+        .filter(JobRun.worker_id.isnot(None))
+        .distinct()
+        .all()
+    )
+    return [{"worker_id": worker_id, "status": "running"} for (worker_id,) in worker_ids]
 
 
 @router.post("/pull")
