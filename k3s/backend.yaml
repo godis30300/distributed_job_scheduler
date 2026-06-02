@@ -19,9 +19,21 @@ spec:
         image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend
         env:
         - name: DATABASE_URL
-          value: "postgresql://postgres:postgres@db:5432/jobscheduler"
+          value: "postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler"
+        - name: JWT_SECRET_KEY
+          value: "change-me-in-production"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: CORS_ORIGINS
+          value: "http://localhost:5173,http://127.0.0.1:5173"
         ports:
         - containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
