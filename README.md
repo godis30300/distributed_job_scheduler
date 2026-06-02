@@ -209,6 +209,7 @@ Get-Content -Raw backend\database\migrations\005_db_controller_functions.sql | d
 Get-Content -Raw backend\database\migrations\006_remove_fixed_seed_data.sql | docker compose exec -T db psql -U postgres -d jobscheduler
 docker compose exec -T backend python scripts/db_smoke_test.py
 docker compose exec -T backend python scripts/api_scenario_test.py
+docker compose exec -T backend python scripts/strict_full_system_test.py
 docker compose config
 kubectl kustomize .
 ```
@@ -218,12 +219,19 @@ Expected successful outputs:
 ```text
 DB SMOKE TEST PASSED
 API SCENARIO TEST PASSED
+STRICT FULL SYSTEM TEST PASSED
 ```
 
 The DB smoke test validates schema columns, PostgreSQL `db_*` functions, queue
 locking, logs, decimal duration, and dependencies. The API scenario test covers
 register/login/me, health aliases, new shell/python jobs, old payload
 compatibility, retry, log search, dashboard summary, and metrics.
+
+The strict full system test is the project-level check. It uses no seeded
+account: it registers a real user, verifies the bcrypt password hash in the DB,
+logs in with JWT, changes the password, and exercises job CRUD, shell/python
+execution, retry, cancel, worker finish, scheduler, logs, dashboard, and
+metrics.
 
 ## Static Code Analysis (SonarQube)
 
