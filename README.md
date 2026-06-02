@@ -195,6 +195,32 @@ counts by status. Kubernetes/cAdvisor and kube-state-metrics are configured in
 The same file also includes a Grafana dashboard ConfigMap for pending/running
 jobs, CPU, memory, and pod restart panels.
 
+## Test Commands
+
+Run from the repository root after starting Docker Compose:
+
+```powershell
+docker compose up -d --build db backend worker frontend
+Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\005_db_controller_functions.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+docker compose exec -T backend python scripts/db_smoke_test.py
+docker compose exec -T backend python scripts/api_scenario_test.py
+docker compose config
+kubectl kustomize .
+```
+
+Expected successful outputs:
+
+```text
+DB SMOKE TEST PASSED
+API SCENARIO TEST PASSED
+```
+
+The DB smoke test validates schema columns, PostgreSQL `db_*` functions, queue
+locking, logs, decimal duration, and dependencies. The API scenario test covers
+register/login/me, health aliases, new shell/python jobs, old payload
+compatibility, retry, log search, dashboard summary, and metrics.
+
 ## Static Code Analysis (SonarQube)
 
 The project includes a SonarQube instance for static code analysis.

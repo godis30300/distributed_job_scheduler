@@ -1,121 +1,11 @@
-# Local DB Testing SOP
+# Local DB/API Testing SOP
 
-Run all commands from the repository root:
+Run all commands from the repository root.
 
-```powershell
-cd C:\Users\1\Downloads\distributed_job_scheduler-postgresql-db\distributed_job_scheduler-postgresql-db
-```
-
-## 1. Start from a clean local database
-
-This deletes only the local Docker Compose Postgres volume:
+## 1. Start Docker
 
 ```powershell
-docker compose down -v
-```
-
-Start Postgres and backend:
-
-```powershell
-docker compose up -d db backend
-```
-
-Check status:
-
-```powershell
-docker compose ps
-docker compose logs db
-```
-
-`db` should show `healthy`.
-
-## 2. Verify tables exist
-
-```powershell
-docker compose exec db psql -U postgres -d jobscheduler -c "\dt"
-```
-
-Expected tables:
-
-```text
-users
-jobs
-job_runs
-job_logs
-job_dependencies
-```
-
-## 3. Verify important job_runs columns
-
-```powershell
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'job_runs' ORDER BY ordinal_position;"
-```
-
-Important columns:
-
-```text
-action_type
-action_payload
-timeout_seconds
-stdout
-stderr
-error_message
-locked_by
-locked_until
-duration_seconds
-```
-
-## 4. Verify seed data
-
-```powershell
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT id, username, role FROM users;"
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT id, task_name, action_type, schedule_rule, status FROM jobs;"
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT id, job_id, status, action_type, timeout_seconds FROM job_runs;"
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT id, job_run_id, log_level, stream, message FROM job_logs;"
-```
-
-## 5. Run the backend DB smoke test
-
-This test uses the backend DB controllers, not raw SQL only. It verifies:
-
-- backend can connect to PostgreSQL
-- required tables and columns exist
-- test user/job/job_run can be created
-- pending run can be locked with `FOR UPDATE SKIP LOCKED`
-- run can be finished as `success`
-- stdout and system logs are saved
-- log search by task/status works
-
-```powershell
-docker compose exec backend python scripts/db_smoke_test.py
-```
-
-Expected final output:
-
-```text
-DB SMOKE TEST PASSED
-```
-
-If the script says the schema is not up to date, run:
-
-```powershell
-docker compose down -v
-docker compose up -d db backend
-docker compose exec backend python scripts/db_smoke_test.py
-```
-
-## 6. Optional: inspect the smoke test rows
-
-```powershell
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT id, task_name, action_type FROM jobs WHERE task_name = 'db-smoke-shell-job';"
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT id, status, action_type, stdout, error_message FROM job_runs WHERE triggered_by = 'db-smoke-test';"
-docker compose exec db psql -U postgres -d jobscheduler -c "SELECT log_level, stream, message FROM job_logs WHERE job_run_id IN (SELECT id FROM job_runs WHERE triggered_by = 'db-smoke-test') ORDER BY created_at;"
-```
-
-## 7. Full app test
-
-```powershell
-docker compose up -d worker frontend
+docker compose up -d --build db backend worker frontend
 docker compose ps
 ```
 
@@ -128,44 +18,155 @@ worker    Up ...
 frontend  Up ...
 ```
 
-Check backend health:
+## 2. Apply DB Migrations
+
+If the Postgres volume already existed, apply the newest migrations manually:
 
 ```powershell
+Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\005_db_controller_functions.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+```
+
+For a fully clean database:
+
+```powershell
+docker compose down -v
+docker compose up -d --build db backend worker frontend
+```
+
+## 3. Verify Required DB Tables
+
+```powershell
+docker compose exec -T db psql -U postgres -d jobscheduler -c "\dt"
+```
+
+Expected tables:
+
+```text
+users
+jobs
+job_runs
+job_logs
+job_dependencies
+```
+
+## 4. Verify Required Job Columns
+
+```powershell
+docker compose exec -T db psql -U postgres -d jobscheduler -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'jobs' AND column_name IN ('id','name','task_type','script','description','working_dir') ORDER BY column_name;"
+```
+
+Expected columns:
+
+```text
+id
+name
+task_type
+script
+description
+working_dir
+```
+
+## 5. Verify Required Job Run Columns
+
+```powershell
+docker compose exec -T db psql -U postgres -d jobscheduler -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'job_runs' AND column_name IN ('task_type','script','working_dir','duration_ms','duration_seconds_decimal','stdout','stderr','error_message') ORDER BY column_name;"
+```
+
+Expected important columns:
+
+```text
+task_type
+script
+working_dir
+duration_ms
+duration_seconds_decimal
+stdout
+stderr
+error_message
+```
+
+## 6. Verify DB Functions
+
+```powershell
+docker compose exec -T db psql -U postgres -d jobscheduler -c "SELECT proname FROM pg_proc JOIN pg_namespace ON pg_namespace.oid = pg_proc.pronamespace WHERE pg_namespace.nspname = 'public' AND proname LIKE 'db_%' ORDER BY proname;"
+```
+
+Expected functions:
+
+```text
+db_check_dependency_finished
+db_create_dependency
+db_create_job
+db_create_job_run
+db_lock_pending_job
+db_save_job_log
+db_search_job_logs
+db_update_job_run_status
+```
+
+## 7. Run DB Smoke Test
+
+```powershell
+docker compose exec -T backend python scripts/db_smoke_test.py
+```
+
+The smoke test checks:
+
+- required tables and columns
+- PostgreSQL `db_*` functions
+- Python DB controller lock/update/log/search path
+- `FOR UPDATE SKIP LOCKED` pending run locking
+- stdout/stderr/system log persistence
+- `duration_ms > 0`
+- `duration_seconds_decimal > 0`
+- dependency creation and dependency success check
+
+Successful output ends with:
+
+```text
+DB SMOKE TEST PASSED
+```
+
+## 8. Run API Scenario Test
+
+```powershell
+docker compose exec -T backend python scripts/api_scenario_test.py
+```
+
+The scenario test checks:
+
+- `GET /api/health`
+- `GET /api/system/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- new-format shell job create/run/logs
+- new-format python job create/run/logs
+- old-format `task_name/action/action_payload/max_retry` compatibility
+- failed run and retry
+- `GET /api/job-runs`
+- `GET /api/job-runs/logs/search`
+- `GET /api/dashboard/summary`
+- `GET /api/metrics`
+
+Successful output ends with:
+
+```text
+API SCENARIO TEST PASSED
+```
+
+## 9. Health URLs
+
+From the host machine:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://localhost:8000/api/health | Select-Object -ExpandProperty Content
 Invoke-WebRequest -UseBasicParsing http://localhost:8000/api/system/health | Select-Object -ExpandProperty Content
 ```
 
-Expected response contains:
-
-```json
-{
-  "status": "healthy",
-  "database": "connected",
-  "api": "running"
-}
-```
-
-Check API docs and frontend:
-
-```powershell
-Invoke-WebRequest -UseBasicParsing http://localhost:8000/docs | Select-Object -ExpandProperty StatusCode
-Invoke-WebRequest -UseBasicParsing http://localhost:5173 | Select-Object -ExpandProperty StatusCode
-```
-
-Both should return:
+Inside Docker/Kubernetes service networking, use:
 
 ```text
-200
-```
-
-Open in browser:
-
-```text
-Backend API: http://localhost:8000/docs
-Frontend:    http://localhost:5173
-```
-
-If a manually triggered `job_run` stays `pending`, start the worker:
-
-```powershell
-docker compose up -d worker
+http://backend:8000/api/health
 ```

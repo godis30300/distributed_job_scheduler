@@ -1,41 +1,71 @@
 # PostgreSQL / Log / DB Controller
 
-主要串接文件請看 [API_DB_INTEGRATION.md](API_DB_INTEGRATION.md)。
-
-本目錄是 Distributed Asynchronous Job Scheduler 的資料庫交付範圍，對應作業題目中的任務註冊、排程派發、worker queue、log、結果回報、重試、故障轉移、任務相依性。
-
-# 杰霖｜PostgreSQL / Log / DB Controller
-
-This folder owns the database contract used by the FastAPI routes, scheduler,
-worker, UI log viewer, and Kubernetes/PostgreSQL deployment.
+This directory is the database contract for the Distributed Asynchronous Job
+Scheduler. It is aligned with the FastAPI routes, scheduler loop, worker loop,
+UI log viewer, Docker Compose, and Kubernetes PostgreSQL deployment.
 
 ## Files
 
-- `schema.sql`: canonical PostgreSQL schema for a fresh database.
-- `seed.sql`: demo users, jobs, runs, logs, and dependency data.
-- `migrations/001_init.sql`: class-demo initializer that includes `schema.sql`.
+- `schema.sql`: canonical schema for a fresh PostgreSQL database.
+- `seed.sql`: demo users, jobs, job runs, logs, and dependency rows.
+- `migrations/001_init.sql`: initial class-demo initializer.
 - `migrations/002_db_integration_fields.sql`: legacy API/UI alignment.
-- `migrations/003_job_run_snapshots_and_indexes.sql`: job run action snapshots,
-  query indexes, and DB-level `updated_at` triggers.
-- `migrations/004_task_fields_duration_metrics.sql`: task `name`,
-  `task_type`, `script`, `working_dir`, and millisecond duration support.
+- `migrations/003_job_run_snapshots_and_indexes.sql`: queue snapshots, indexes,
+  and `updated_at` triggers.
+- `migrations/004_task_fields_duration_metrics.sql`: `name`, `task_type`,
+  `script`, `working_dir`, `duration_ms`, and `duration_seconds_decimal`.
+- `migrations/005_db_controller_functions.sql`: PostgreSQL DB controller
+  functions for create, lock, status update, logs, search, and dependencies.
 
-## Tables
+## Required Tables
 
-- `users`: login identity used by auth and job ownership.
-- `jobs`: job definition, schedule, action, retry limit, timeout, script,
-  working directory, and next run.
-- `job_runs`: immutable execution snapshot for every scheduled/manual/retry run.
-  Each run stores `task_type`, `script`, `working_dir`, `action_type`,
-  `action_payload`, `timeout_seconds`, `duration_seconds_decimal`,
-  `duration_seconds`, and `duration_ms`. Use `duration_seconds_decimal` for UI
-  display, so fast tasks can show `0.023s` instead of `0s`.
-- `job_logs`: stdout, stderr, and system log messages for UI/API search.
+- `users`: account data for register/login, including `password_hash`.
+- `jobs`: job definitions. Required user-facing fields include `id`, `name`,
+  `task_type`, `script`, `description`, and `working_dir`. Compatibility fields
+  `task_name`, `action_type`, `action_payload`, and `max_retry` are retained.
+- `job_runs`: one immutable execution snapshot per run. It stores copied task
+  fields (`task_type`, `script`, `working_dir`), status, stdout, stderr,
+  error message, locks, retry count, and duration.
+- `job_logs`: stdout, stderr, and system logs for API/UI log search.
 - `job_dependencies`: dependency graph between jobs.
 
-## DB Controller Contract
+## Duration Contract
 
-Python DB controller functions live in:
+`job_runs.duration_seconds` remains an integer for legacy API/UI users.
+
+New code should use:
+
+- `duration_ms`: integer milliseconds, minimum `1` for completed runs.
+- `duration_seconds_decimal`: decimal seconds, for example `0.023`.
+
+This prevents fast jobs from displaying as `0s`.
+
+## PostgreSQL DB Functions
+
+The schema exposes these `db_*` functions for DB-level integration tests and
+for other services that need direct DB helpers:
+
+- `db_create_job`
+- `db_create_job_run`
+- `db_lock_pending_job`
+- `db_update_job_run_status`
+- `db_save_job_log`
+- `db_search_job_logs`
+- `db_create_dependency`
+- `db_check_dependency_finished`
+
+`db_lock_pending_job` uses:
+
+```sql
+FOR UPDATE SKIP LOCKED
+```
+
+This prevents multiple Job Controller or Worker replicas from executing the
+same pending `job_runs` row.
+
+## Python DB Controller Functions
+
+The API uses Python controller functions in:
 
 ```text
 backend/app/controllers/job_controller.py
@@ -44,7 +74,7 @@ backend/app/controllers/queue_controller.py
 backend/app/controllers/scheduler_controller.py
 ```
 
-Important functions for integration:
+Important functions:
 
 - `create_job`, `list_jobs`, `get_job_or_404`, `update_job`, `delete_job`
 - `create_job_run`, `update_job_run_status`, `retry_job_run`, `cancel_job_run`
@@ -52,40 +82,41 @@ Important functions for integration:
 - `get_pending_jobs`, `lock_pending_job`, `dequeue_next_run`, `finish_run`
 - `create_dependency`, `check_dependency_finished`
 
-## Queue Locking
+## Manual Local Test
 
-`queue_controller.lock_pending_job()` uses PostgreSQL row locking through
-SQLAlchemy:
-
-```python
-.with_for_update(skip_locked=True)
-```
-
-Equivalent SQL:
-
-```sql
-SELECT *
-FROM job_runs
-WHERE status = 'pending'
-ORDER BY created_at
-FOR UPDATE SKIP LOCKED
-LIMIT 1;
-```
-
-This lets multiple Job Controller / Worker replicas pull work concurrently
-without executing the same `job_runs` row twice.
-
-## Running SQL Manually
-
-From the repository root:
+Start services:
 
 ```powershell
-Get-Content -Raw backend\database\schema.sql | docker compose exec -T db psql -U postgres -d jobscheduler
-Get-Content -Raw backend\database\seed.sql | docker compose exec -T db psql -U postgres -d jobscheduler
-Get-Content -Raw backend\database\migrations\003_job_run_snapshots_and_indexes.sql | docker compose exec -T db psql -U postgres -d jobscheduler
-Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+docker compose up -d --build db backend worker frontend
 ```
 
-For a fresh Docker Compose database, `schema.sql` and `seed.sql` are mounted
-into `/docker-entrypoint-initdb.d` and run automatically when the Postgres data
-volume is empty.
+Apply migrations if the database volume already existed:
+
+```powershell
+Get-Content -Raw backend\database\migrations\004_task_fields_duration_metrics.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+Get-Content -Raw backend\database\migrations\005_db_controller_functions.sql | docker compose exec -T db psql -U postgres -d jobscheduler
+```
+
+Run the DB smoke test:
+
+```powershell
+docker compose exec -T backend python scripts/db_smoke_test.py
+```
+
+Successful output ends with:
+
+```text
+DB SMOKE TEST PASSED
+```
+
+## Fresh Database
+
+For a clean local database:
+
+```powershell
+docker compose down -v
+docker compose up -d --build db backend worker frontend
+```
+
+When the PostgreSQL volume is empty, Docker runs `schema.sql` and `seed.sql`
+from `/docker-entrypoint-initdb.d` automatically.
