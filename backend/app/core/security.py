@@ -8,8 +8,8 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.database import get_db
-from app.models.user import User
+from app.infrastructure.database.database import get_db
+from app.domain.entities.user import User
 
 settings = get_settings()
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

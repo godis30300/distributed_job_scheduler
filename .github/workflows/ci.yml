@@ -64,18 +64,16 @@ jobs:
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/004_task_fields_duration_metrics.sql
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/005_db_controller_functions.sql
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/006_remove_fixed_seed_data.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/008_add_metadata_json_and_api_poll.sql
 
       - name: Run backend pytest
         run: |
           mkdir -p backend/test-reports
-          python -m pytest \
-            --junitxml=backend/test-reports/pytest.xml \
-            --cov=backend/app \
-            --cov-report=xml:backend/coverage.xml \
-            backend/app/tests/test_auth_controller.py \
-            backend/app/tests/test_job_controller.py \
-            backend/app/tests/test_schedule_utils.py \
-            backend/app/tests/test_worker_lifecycle.py
+          cd backend && PYTHONPATH=. python -m pytest \
+            --junitxml=test-reports/pytest.xml \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            tests/
 
       - name: Upload backend test reports
         uses: actions/upload-artifact@v4
