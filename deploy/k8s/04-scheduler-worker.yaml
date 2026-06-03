@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: scheduler
-          image: registry.example.com/job-scheduler-backend:latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
           command: ["python", "-m", "app.services.scheduler_loop"]
           envFrom:
             - secretRef:
@@ -40,7 +40,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: registry.example.com/job-scheduler-backend:latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
           command: ["python", "-m", "app.services.worker_loop"]
           env:
             - name: WORKER_ID

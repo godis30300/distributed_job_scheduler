@@ -10,12 +10,16 @@ spec:
       app: backend
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/api/metrics"
+        prometheus.io/port: "8000"
       labels:
         app: backend
     spec:
       containers:
         - name: backend
-          image: registry.example.com/job-scheduler-backend:latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:

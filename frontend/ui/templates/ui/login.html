@@ -6,8 +6,24 @@
   <form method="post" class="form">
     {% csrf_token %}
     {{ form.as_p }}
-    <button class="btn primary" type="submit">登入</button>
+    <div style="margin: -10px 0 15px 0; display: flex; align-items: center; gap: 8px;">
+      <input type="checkbox" id="show-password" style="min-height: auto; width: auto; cursor: pointer;">
+      <label for="show-password" style="font-weight: normal; font-size: 13px; cursor: pointer; user-select: none;">顯示密碼</label>
+    </div>
+    <button class="btn primary" type="submit" style="width: 100%;">登入</button>
   </form>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.querySelector('input[type="password"]');
+      const checkbox = document.getElementById('show-password');
+      if (passwordInput && checkbox) {
+        checkbox.addEventListener('change', function() {
+          passwordInput.type = this.checked ? 'text' : 'password';
+        });
+      }
+    });
+  </script>
   <p class="muted">尚未有帳號？<a href="{% url 'register' %}">註冊</a></p>
 </section>
 {% endblock %}

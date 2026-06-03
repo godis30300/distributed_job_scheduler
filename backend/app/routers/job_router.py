@@ -59,11 +59,24 @@ def disable_job(job_id: str, db: Session = Depends(get_db), _: User = Depends(ge
     return job_controller.set_job_enabled(db, job_id, False)
 
 
+def _trigger_job_response(job_id: str, db: Session, current_user: User) -> TriggerResponse:
+    run = job_controller.trigger_job(db, job_id, current_user, trigger_type="manual")
+    return TriggerResponse(run_id=run.id, status=run.status)
+
+
+@router.post("/{job_id}/run", response_model=TriggerResponse)
+def run_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _trigger_job_response(job_id, db, current_user)
+
+
 @router.post("/{job_id}/trigger", response_model=TriggerResponse)
 def trigger_job(
     job_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    run = job_controller.trigger_job(db, job_id, current_user, trigger_type="manual")
-    return TriggerResponse(run_id=run.id, status=run.status)
+    return _trigger_job_response(job_id, db, current_user)

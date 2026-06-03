@@ -23,7 +23,7 @@ def dashboard_summary(db: Session) -> dict:
     )
     failed_today = (
         db.query(func.count(JobRun.id))
-        .filter(JobRun.status == "failed", JobRun.created_at >= today)
+        .filter(JobRun.status.in_(("failed", "timeout")), JobRun.created_at >= today)
         .scalar()
         or 0
     )

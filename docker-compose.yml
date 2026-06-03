@@ -5,10 +5,13 @@ services:
       POSTGRES_DB: jobscheduler
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d jobscheduler"]
       interval: 5s
@@ -22,6 +25,7 @@ services:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler
       JWT_SECRET_KEY: change-me-in-production
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      PYTHONUNBUFFERED: "1"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
@@ -37,6 +41,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler
       JWT_SECRET_KEY: change-me-in-production
+      PYTHONUNBUFFERED: "1"
     command: python -m app.services.scheduler_loop
     volumes:
       - ./backend:/app
@@ -53,6 +58,7 @@ services:
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler
       JWT_SECRET_KEY: change-me-in-production
       WORKER_ID: worker-compose-1
+      PYTHONUNBUFFERED: "1"
     command: python -m app.services.worker_loop
     volumes:
       - ./backend:/app
@@ -66,13 +72,15 @@ services:
     build:
       context: ./frontend
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
-    command: npm run dev -- --host 0.0.0.0
+      ALLOWED_HOSTS: 192.168.2.158
+      BACKEND_API_URL: http://backend:8000/api
+      PYTHONUNBUFFERED: "1"
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./frontend:/app
       - frontend-node-modules:/app/node_modules
     ports:
-      - "5173:5173"
+      - "5173:8000"
     depends_on:
       - backend
 

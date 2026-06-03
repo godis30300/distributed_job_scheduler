@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from sqlalchemy.orm import Session
 
 from app.models.job import Job
@@ -28,6 +26,7 @@ def scan_due_jobs(db: Session) -> dict:
     due_jobs = (
         db.query(Job)
         .filter(Job.enabled.is_(True))
+        .filter(Job.status.in_(("enabled", "active")))
         .filter(Job.next_run_at.isnot(None))
         .filter(Job.next_run_at <= now)
         .with_for_update(skip_locked=True)
@@ -40,7 +39,19 @@ def scan_due_jobs(db: Session) -> dict:
             job.next_run_at = compute_next_run(job.schedule_rule, now)
             continue
 
-        run = JobRun(job_id=job.id, status="pending", trigger_type="schedule")
+        run = JobRun(
+            job_id=job.id,
+            user_id=job.user_id,
+            status="pending",
+            trigger_type="schedule",
+            triggered_by="schedule",
+            task_type=job.task_type or job.action_type,
+            script=job.script,
+            working_dir=job.working_dir,
+            action_type=job.action_type,
+            action_payload=job.action_payload,
+            timeout_seconds=job.timeout_seconds,
+        )
         db.add(run)
         job.last_run_at = now
         job.next_run_at = compute_next_run(job.schedule_rule, now)

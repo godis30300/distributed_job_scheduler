@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-job-scheduler-config
+  namespace: job-scheduler
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      - job_name: job-scheduler-api
+        metrics_path: /api/metrics
+        static_configs:
+          - targets:
+              - backend.job-scheduler.svc.cluster.local:8000
+
+      # Kubernetes/cAdvisor metrics provide container CPU and memory:
+      # - container_cpu_usage_seconds_total
+      # - container_memory_working_set_bytes
+      - job_name: kubernetes-cadvisor
+        scheme: https
+        kubernetes_sd_configs:
+          - role: node
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          insecure_skip_verify: true
+        relabel_configs:
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+
+      # kube-state-metrics is expected to be installed in the cluster.
+      # It provides pod restart metrics:
+      # - kube_pod_container_status_restarts_total
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets:
+              - kube-state-metrics.kube-system.svc.cluster.local:8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-job-scheduler-dashboard
+  namespace: job-scheduler
+  labels:
+    grafana_dashboard: "1"
+data:
+  job-scheduler-dashboard.json: |
+    {
+      "title": "Distributed Job Scheduler",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "10s",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Pending Jobs",
+          "targets": [
+            { "expr": "scheduler_job_runs_total{status=\"pending\"}" }
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Running Jobs",
+          "targets": [
+            { "expr": "scheduler_job_runs_total{status=\"running\"}" }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Container CPU",
+          "targets": [
+            { "expr": "rate(container_cpu_usage_seconds_total{namespace=\"job-scheduler\",container!=\"\"}[5m])" }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Container Memory",
+          "targets": [
+            { "expr": "container_memory_working_set_bytes{namespace=\"job-scheduler\",container!=\"\"}" }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Pod Restarts",
+          "targets": [
+            { "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"job-scheduler\"}[10m])" }
+          ]
+        }
+      ]
+    }

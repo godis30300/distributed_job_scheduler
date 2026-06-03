@@ -15,10 +15,10 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: registry.example.com/job-scheduler-frontend:latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 5173
+            - containerPort: 8000
 ---
 apiVersion: v1
 kind: Service
@@ -30,4 +30,4 @@ spec:
     app: frontend
   ports:
     - port: 5173
-      targetPort: 5173
+      targetPort: 8000

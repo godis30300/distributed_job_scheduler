@@ -15,7 +15,19 @@
       {% for job in jobs %}
       <tr>
         <td><a href="{% url 'job_detail' job.id %}">{{ job.task_name }}</a></td>
-        <td><span class="badge {{ job.status }}">{{ job.status }}</span></td>
+        <td>
+          {% if job.status == 'success' %}
+              <span class="badge" style="background-color: #198754; color: white;">成功</span>
+          {% elif job.status == 'running' %}
+              <span class="badge" style="background-color: #0d6efd; color: white;">執行中...</span>
+          {% elif job.status == 'pending' %}
+              <span class="badge" style="background-color: #ffc107; color: black;">等待中</span>
+          {% elif job.status == 'failed' or job.status == 'timeout' %}
+              <span class="badge" style="background-color: #dc3545; color: white;">失敗</span>
+          {% else %}
+              <span class="badge" style="background-color: #6c757d; color: white;">{{ job.status }}</span>
+          {% endif %}
+        </td>
         <td>{{ job.schedule_type }}</td>
         <td>{{ job.action }}</td>
         <td>{{ job.timeout_seconds }}s</td>

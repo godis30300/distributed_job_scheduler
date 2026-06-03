@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
+from app.controllers.system_controller import health_check
 from app.core.config import get_settings
-from app.core.database import init_db
+from app.core.database import get_db, init_db
 from app.routers import (
     auth_router,
     dashboard_router,
@@ -35,6 +37,11 @@ def on_startup():
 @app.get("/")
 def root():
     return {"service": settings.app_name, "docs": "/docs"}
+
+
+@app.get(f"{settings.api_prefix}/health")
+def health_alias(db: Session = Depends(get_db)):
+    return health_check(db)
 
 
 app.include_router(auth_router.router, prefix=settings.api_prefix)

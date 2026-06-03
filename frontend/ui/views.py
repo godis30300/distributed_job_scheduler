@@ -50,8 +50,8 @@ def login_view(request):
                 request.session['username'] = username
                 messages.success(request, '登入成功。')
                 return redirect('dashboard')
-            except BackendAPIError as exc:
-                messages.error(request, str(exc))
+            except BackendAPIError:
+                messages.error(request, '帳號或密碼錯誤。')
     else:
         form = LoginForm()
     return render(request, 'ui/login.html', {'form': form})
@@ -74,7 +74,7 @@ def register_view(request):
                 messages.success(request, '註冊成功，請登入。')
                 return redirect('login')
             except BackendAPIError as exc:
-                messages.error(request, str(exc))
+                messages.error(request, f'註冊失敗：{exc}')
     else:
         form = RegisterForm()
     return render(request, 'ui/register.html', {'form': form})
@@ -123,6 +123,98 @@ def job_list_view(request):
     return render(request, 'ui/job_list.html', {'jobs': jobs})
 
 
+def job_list_partial_view(request):
+    redirect_response = _require_login(request)
+    if redirect_response:
+        from django.http import HttpResponse
+        return HttpResponse('')
+    try:
+        jobs = demo_store.list_jobs(request) if settings.DEMO_MODE else _client(request).list_jobs()
+        jobs = jobs if isinstance(jobs, list) else jobs.get('items', [])
+    except BackendAPIError:
+        jobs = []
+    return render(request, 'ui/partials/job_table.html', {'jobs': jobs})
+
+
+def _prepare_job_payload(data):
+    # Construct schedule_rule
+    stype = data['schedule_type']
+    if stype == 'cron':
+        schedule_rule = f"cron:{data['cron_expression']}"
+    elif stype == 'interval':
+        schedule_rule = f"every:{data['interval_seconds']}s"
+    else:
+        schedule_rule = "manual"
+
+    # Construct action_payload
+    action_type = data['action']
+    if action_type == 'api_call':
+        action_payload = {
+            "method": data['api_method'],
+            "url": data['api_url'],
+            "headers": {},
+            "body": None
+        }
+    else:  # shell or python_script
+        action_payload = {
+            "script": data.get('shell_script'),
+            "content": data.get('script_content'),
+            "working_dir": data.get('working_dir'),
+            "args": []
+        }
+
+    payload = {
+        "task_name": data['task_name'],
+        "description": data.get('description'),
+        "status": data['status'],
+        "action_type": action_type,
+        "action_payload": action_payload,
+        "schedule_rule": schedule_rule,
+        "timeout_seconds": data['timeout_seconds'],
+        "max_retry": data['retry_limit']
+    }
+    
+    return payload
+
+
+def _prepare_initial_data(job):
+    initial = {
+        'task_name': job.get('task_name'),
+        'description': job.get('description'),
+        'status': job.get('status'),
+        'timeout_seconds': job.get('timeout_seconds'),
+        'retry_limit': job.get('max_retry'),
+    }
+    
+    # Schedule
+    rule = job.get('schedule_rule', '')
+    if rule == 'manual':
+        initial['schedule_type'] = 'manual'
+    elif rule.startswith('cron:'):
+        initial['schedule_type'] = 'cron'
+        initial['cron_expression'] = rule[5:]
+    elif rule.startswith('every:'):
+        initial['schedule_type'] = 'interval'
+        # Simple extraction of seconds
+        val = rule[6:]
+        if val.endswith('s'): val = val[:-1]
+        initial['interval_seconds'] = val
+    
+    # Action
+    atype = job.get('action_type')
+    initial['action'] = atype
+    payload = job.get('action_payload', {})
+    if atype == 'api_call':
+        initial['api_method'] = payload.get('method')
+        initial['api_url'] = payload.get('url')
+    elif atype in ['shell', 'python_script']:
+        initial['shell_script'] = payload.get('script')
+        initial['script_content'] = payload.get('content')
+        initial['working_dir'] = payload.get('working_dir')
+        
+    return initial
+
+
 @require_http_methods(['GET', 'POST'])
 def job_create_view(request):
     redirect_response = _require_login(request)
@@ -131,7 +223,7 @@ def job_create_view(request):
     if request.method == 'POST':
         form = JobForm(request.POST)
         if form.is_valid():
-            payload = form.cleaned_data
+            payload = _prepare_job_payload(form.cleaned_data)
             if settings.DEMO_MODE:
                 demo_store.create_job(request, payload)
             else:
@@ -143,7 +235,7 @@ def job_create_view(request):
             messages.success(request, 'Job 建立成功。')
             return redirect('job_list')
     else:
-        form = JobForm(initial={'status': 'enabled', 'schedule_type': 'manual', 'action': 'report'})
+        form = JobForm(initial={'status': 'enabled', 'schedule_type': 'manual', 'action': 'api_call'})
     return render(request, 'ui/job_form.html', {'form': form, 'mode': 'create'})
 
 
@@ -179,7 +271,7 @@ def job_edit_view(request, job_id):
     if request.method == 'POST':
         form = JobForm(request.POST)
         if form.is_valid():
-            payload = form.cleaned_data
+            payload = _prepare_job_payload(form.cleaned_data)
             if settings.DEMO_MODE:
                 demo_store.update_job(request, job_id, payload)
             else:
@@ -191,7 +283,7 @@ def job_edit_view(request, job_id):
             messages.success(request, 'Job 更新成功。')
             return redirect('job_detail', job_id=job_id)
     else:
-        form = JobForm(initial=job)
+        form = JobForm(initial=_prepare_initial_data(job))
     return render(request, 'ui/job_form.html', {'form': form, 'mode': 'edit', 'job': job})
 
 
@@ -238,6 +330,19 @@ def job_runs_view(request):
         messages.error(request, str(exc))
         runs = []
     return render(request, 'ui/job_runs.html', {'runs': runs})
+
+
+def job_runs_partial_view(request):
+    redirect_response = _require_login(request)
+    if redirect_response:
+        from django.http import HttpResponse
+        return HttpResponse('')
+    try:
+        runs = demo_store.list_runs(request) if settings.DEMO_MODE else _client(request).list_job_runs()
+        runs = runs if isinstance(runs, list) else runs.get('items', [])
+    except BackendAPIError:
+        runs = []
+    return render(request, 'ui/partials/run_table.html', {'runs': runs})
 
 
 def job_run_logs_view(request, run_id):
