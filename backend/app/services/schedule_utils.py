@@ -1,10 +1,36 @@
 from datetime import datetime, timedelta, timezone
-
+from typing import Any
 from croniter import croniter
 
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def resolve_schedule_rule(payload: Any, current_rule: str | None = None) -> str:
+    """
+    Business logic to determine the canonical schedule string from DTO or dict.
+    """
+    # Use getattr if it's an object, else use .get if it's a dict
+    def get_val(key, default=None):
+        if hasattr(payload, key):
+            return getattr(payload, key)
+        if isinstance(payload, dict):
+            return payload.get(key, default)
+        return default
+
+    stype = get_val("schedule_type")
+    if not stype:
+        return current_rule or "manual"
+    
+    if stype == "manual":
+        return "manual"
+    if stype == "cron":
+        return get_val("cron_expression") or ""
+    if stype == "interval":
+        seconds = get_val("interval_seconds")
+        return f"every:{seconds}s"
+    return current_rule or "manual"
 
 
 def compute_next_run(schedule_rule: str, base_time: datetime | None = None) -> datetime:

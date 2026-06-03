@@ -1,23 +1,24 @@
 import time
 
-from app.controllers.scheduler_controller import scan_due_jobs
+from app.presentation.controllers.scheduler_controller import scan_due_jobs
 from app.core.config import get_settings
-from app.core.database import SessionLocal, init_db
+from app.infrastructure.database.database import SessionLocal, init_db
+from app.core.logger import logger
 
 settings = get_settings()
 
 
 def main():
     init_db()
-    print("[scheduler] started")
+    logger.info("started")
     while True:
         db = SessionLocal()
         try:
             result = scan_due_jobs(db)
             if result["created_runs"]:
-                print(f"[scheduler] created runs: {result['run_ids']}")
+                logger.info(f"created runs: {result['run_ids']}")
         except Exception as exc:
-            print(f"[scheduler] error: {exc}")
+            logger.error(f"error: {exc}")
         finally:
             db.close()
 

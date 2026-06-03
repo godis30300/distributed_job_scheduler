@@ -11,14 +11,14 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.controllers.job_run_controller import search_job_logs
-from app.controllers.queue_controller import finish_run, lock_pending_job
-from app.core.database import SessionLocal, init_db
+from app.presentation.controllers.job_run_controller import search_job_logs
+from app.presentation.controllers.queue_controller import finish_run, lock_pending_job
+from app.infrastructure.database.database import SessionLocal, init_db
 from app.core.security import hash_password
-from app.models.job import Job
-from app.models.job_log import JobLog
-from app.models.job_run import JobRun
-from app.models.user import User
+from app.domain.entities.job import Job
+from app.domain.entities.job_log import JobLog
+from app.domain.entities.job_run import JobRun
+from app.domain.entities.user import User
 
 
 SMOKE_USERNAME = "db_smoke_user"
