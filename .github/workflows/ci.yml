@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - test/frontend/automation_test
     tags:
       - "*"
   pull_request:
@@ -84,19 +85,11 @@ jobs:
             backend/coverage.xml
 
   sonarqube:
-    needs:
-      - backend-pytest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Download backend test reports
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-test-reports
-          path: .
 
       - name: SonarQube scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
