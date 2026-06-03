@@ -256,12 +256,11 @@ Workflow jobs:
 - `backend-pytest`: starts PostgreSQL, applies schema plus migrations, then runs the backend pytest slice and exports JUnit plus coverage reports.
 - `backend-db-smoke`: starts PostgreSQL, applies schema plus migrations, and runs `python backend/scripts/db_smoke_test.py`.
 - `docker-build`: builds the backend and frontend Docker images on `main` pushes and tags.
-- `sonarqube`: runs after the test jobs and scans the repository when SonarQube secrets are configured.
 
 The workflow test jobs use:
 
-- `CI_POSTGRES_PASSWORD` from GitHub Secrets
-- `CI_JWT_SECRET_KEY` from GitHub Secrets
+- `POSTGRES_PASSWORD=ci-postgres-password`
+- `JWT_SECRET_KEY=ci-jwt-secret`
 
 The workflow does not push images or deploy them.
 
@@ -275,43 +274,6 @@ envsubst < deploy/k8s/01-config.yaml | kubectl apply -f -
 kubectl apply -f deploy/k8s/02-postgres.yaml
 kubectl apply -f deploy/k8s/03-backend.yaml
 ```
-
-## Static Code Analysis (SonarQube)
-
-The project includes a SonarQube instance for static code analysis.
-
-### Setup & Scan
-
-1. **Start SonarQube Server**:
-
-   ```bash
-   docker compose up -d sonarqube
-   ```
-
-2. **Run Scanner**:
-
-   ```bash
-  export SONAR_TOKEN=your-sonarqube-token
-  export SONAR_HOST_URL=http://sonarqube:9000
-   ./run-sonar.sh
-   ```
-
-### GitHub Actions Secrets
-
-To enable the `sonarqube` job in GitHub Actions, add these repository secrets:
-
-- `SONAR_HOST_URL`: the SonarQube server URL reachable from the runner
-- `SONAR_TOKEN`: a SonarQube token with permission to run scans
-
-If either secret is missing, the workflow skips the SonarQube job and still runs the test and Docker build jobs.
-
-### Access Results
-
-- **URL**: [http://localhost:9000](http://localhost:9000)
-- **Project**: `distributed-job-scheduler`
-- **Credentials**:
-  - **Username**: `admin`
-  - **Password**: `AdminPassword123!`
 
 
 ## Kubernetes

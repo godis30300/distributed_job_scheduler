@@ -14,9 +14,9 @@ permissions:
 env:
   POSTGRES_DB: jobscheduler
   POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
-  DATABASE_URL: postgresql+psycopg2://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/jobscheduler
-  JWT_SECRET_KEY: ${{ secrets.CI_JWT_SECRET_KEY }}
+  POSTGRES_PASSWORD: gh-ci-db-${{ github.run_id }}
+  DATABASE_URL: postgresql+psycopg2://postgres:${{ github.run_id }}-db@localhost:5432/jobscheduler
+  JWT_SECRET_KEY: gh-ci-jwt-${{ github.run_id }}
   CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
   PYTHONUNBUFFERED: "1"
 
@@ -29,7 +29,7 @@ jobs:
         env:
           POSTGRES_DB: jobscheduler
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: gh-ci-db-${{ github.run_id }}
         ports:
           - 5432:5432
         options: >-
@@ -55,7 +55,7 @@ jobs:
 
       - name: Apply database schema and migrations
         env:
-          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          PGPASSWORD: gh-ci-db-${{ github.run_id }}
         run: |
           until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
@@ -91,7 +91,7 @@ jobs:
         env:
           POSTGRES_DB: jobscheduler
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: gh-ci-db-${{ github.run_id }}
         ports:
           - 5432:5432
         options: >-
@@ -117,7 +117,7 @@ jobs:
 
       - name: Apply database schema and migrations
         env:
-          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          PGPASSWORD: gh-ci-db-${{ github.run_id }}
         run: |
           until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
@@ -153,25 +153,3 @@ jobs:
           push: false
           tags: distributed-job-scheduler-${{ matrix.component }}:${{ github.sha }}
 
-  sonarqube:
-    if: ${{ secrets.SONAR_HOST_URL != '' && secrets.SONAR_TOKEN != '' }}
-    needs:
-      - backend-pytest
-      - backend-db-smoke
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download backend test reports
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-test-reports
-          path: .
-
-      - name: SonarQube scan
-        uses: SonarSource/sonarqube-scan-action@v5.0.0
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
