@@ -75,3 +75,58 @@ jobs:
             --cov-report=xml:backend/coverage.xml \
             backend/app/tests/test_schedule_utils.py \
             backend/app/tests/test_worker_lifecycle.py
+
+      - name: Upload backend test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            backend/test-reports/pytest.xml
+            backend/coverage.xml
+
+  backend-db-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: jobscheduler
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d jobscheduler"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install smoke test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+
+      - name: Apply database schema and migrations
+        env:
+          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+        run: |
+          until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/002_db_integration_fields.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/003_postgresql_queue_integrity.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/004_task_fields_duration_metrics.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/005_db_controller_functions.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/006_remove_fixed_seed_data.sql
+
+      - name: Run DB smoke test
+        run: python backend/scripts/db_smoke_test.py
