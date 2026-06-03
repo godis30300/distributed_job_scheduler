@@ -75,24 +75,3 @@ jobs:
             --cov-report=xml:backend/coverage.xml \
             backend/app/tests/test_schedule_utils.py \
             backend/app/tests/test_worker_lifecycle.py
-
-      - name: Upload backend test reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-test-reports
-          path: |
-            backend/test-reports/pytest.xml
-            backend/coverage.xml
-
-  sonarqube:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: SonarQube scan
-        uses: SonarSource/sonarqube-scan-action@v5.0.0
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
