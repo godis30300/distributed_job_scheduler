@@ -89,19 +89,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        if: secrets.SONAR_TOKEN != ''
         with:
           fetch-depth: 0
 
       - name: Download backend test reports
-        if: secrets.SONAR_TOKEN != ''
         uses: actions/download-artifact@v4
         with:
           name: backend-test-reports
           path: .
 
       - name: SonarQube scan
-        if: secrets.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
