@@ -45,6 +45,7 @@ class JobRunService:
         elif status in ("success", "failed", "timeout", "canceled"):
             run.status = status
             run.complete(now) # Use Rich Domain Model logic
+            self.db.add(JobLog(job_run_id=run.id, log_level="info", stream="system", message=f"Run finished: {status}"))
 
         if stdout is not None:
             run.stdout = stdout

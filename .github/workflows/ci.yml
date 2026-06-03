@@ -52,7 +52,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client
           python -m pip install --upgrade pip
-          python -m pip install -r backend/requirements.txt pytest pytest-cov
+          python -m pip install -r backend/requirements.txt pytest pytest-cov pytest-asyncio anyio
 
       - name: Apply database schema and migrations
         env:
@@ -65,16 +65,33 @@ jobs:
             psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$f"
           done
 
-      - name: Run backend pytest
+      - name: Run backend pytest (with background worker)
         run: |
           cd backend
           export PYTHONPATH=$GITHUB_WORKSPACE/backend
           mkdir -p test-reports
+          
+          # Start background worker to pick up jobs during concurrency tests
+          python -m app.services.worker_loop > worker.log 2>&1 &
+          WORKER_PID=$!
+          echo "Worker started with PID $WORKER_PID"
+          
+          # Run tests
           python -m pytest \
             --junitxml=test-reports/pytest.xml \
             --cov=app \
             --cov-report=xml:coverage.xml \
-            tests
+            tests || TEST_EXIT_CODE=$?
+            
+          echo "Tests finished with exit code ${TEST_EXIT_CODE:-0}"
+          
+          # Kill worker and show logs if tests failed
+          kill $WORKER_PID || true
+          if [ "${TEST_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "--- Worker Logs ---"
+            cat worker.log
+            exit $TEST_EXIT_CODE
+          fi
 
       - name: Upload backend test reports
         uses: actions/upload-artifact@v4
@@ -152,6 +169,7 @@ jobs:
       - name: Run frontend tests
         env:
           SECRET_KEY: "temporary_secret_key_for_testing"
+          DATABASE_URL: "sqlite:///db.sqlite3"
         run: |
           cd frontend
           python manage.py test
