@@ -30,14 +30,14 @@ jobs:
         env:
           POSTGRES_DB: jobscheduler
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d jobscheduler"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
 
@@ -92,14 +92,14 @@ jobs:
         env:
           POSTGRES_DB: jobscheduler
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d jobscheduler"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
 
