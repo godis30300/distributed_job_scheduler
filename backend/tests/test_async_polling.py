@@ -8,8 +8,10 @@ from unittest.mock import patch, MagicMock
 
 @pytest.fixture
 def async_job(db: Session):
+    import uuid
+    task_name = f"long_api_job_{uuid.uuid4().hex[:6]}"
     job = Job(
-        task_name="long_api_job",
+        task_name=task_name,
         action_type="api_poll", # 新的 action type
         action_payload={
             "trigger_url": "http://external-api/start",
