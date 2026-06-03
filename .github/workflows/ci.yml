@@ -15,9 +15,9 @@ permissions:
 env:
   POSTGRES_DB: jobscheduler
   POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
-  DATABASE_URL: postgresql+psycopg2://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/jobscheduler
-  JWT_SECRET_KEY: ${{ secrets.CI_JWT_SECRET_KEY }}
+  POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
+  DATABASE_URL: postgresql+psycopg2://postgres:${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}@localhost:5432/jobscheduler
+  JWT_SECRET_KEY: ${{ secrets.CI_JWT_SECRET_KEY || 'testsecretkey' }}
   CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
   PYTHONUNBUFFERED: "1"
 
@@ -56,7 +56,7 @@ jobs:
 
       - name: Apply database schema and migrations
         env:
-          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
         run: |
           until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
@@ -118,7 +118,7 @@ jobs:
 
       - name: Apply database schema and migrations
         env:
-          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
         run: |
           until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
