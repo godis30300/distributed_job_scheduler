@@ -254,7 +254,6 @@ This repository uses GitHub Actions in `.github/workflows/ci.yml`.
 Workflow jobs:
 
 - `backend-pytest`: starts PostgreSQL, applies schema plus migrations, then runs the backend pytest slice and exports JUnit plus coverage reports.
-- `backend-db-smoke`: starts PostgreSQL, applies schema plus migrations, and runs `python backend/scripts/db_smoke_test.py`.
 - `docker-build`: builds the backend and frontend Docker images on `main` pushes and tags.
 
 The workflow test jobs use:
