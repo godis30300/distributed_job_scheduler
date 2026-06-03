@@ -60,16 +60,15 @@ jobs:
         run: |
           until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/002_db_integration_fields.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/003_postgresql_queue_integrity.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/004_task_fields_duration_metrics.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/005_db_controller_functions.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/006_remove_fixed_seed_data.sql
+          for f in backend/database/migrations/*.sql; do
+            echo "Applying $f..."
+            psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$f"
+          done
 
       - name: Run backend pytest
         run: |
           cd backend
-          export PYTHONPATH=$PYTHONPATH:.
+          export PYTHONPATH=$GITHUB_WORKSPACE/backend
           mkdir -p test-reports
           python -m pytest \
             --junitxml=test-reports/pytest.xml \
@@ -123,16 +122,15 @@ jobs:
         run: |
           until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/002_db_integration_fields.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/003_postgresql_queue_integrity.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/004_task_fields_duration_metrics.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/005_db_controller_functions.sql
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/006_remove_fixed_seed_data.sql
+          for f in backend/database/migrations/*.sql; do
+            echo "Applying $f..."
+            psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$f"
+          done
 
       - name: Run DB smoke test
         run: |
           cd backend
-          export PYTHONPATH=$PYTHONPATH:.
+          export PYTHONPATH=$GITHUB_WORKSPACE/backend
           python scripts/db_smoke_test.py
 
   frontend-test:
@@ -152,6 +150,8 @@ jobs:
           python -m pip install -r frontend/requirements.txt
 
       - name: Run frontend tests
+        env:
+          SECRET_KEY: "temporary_secret_key_for_testing"
         run: |
           cd frontend
           python manage.py test

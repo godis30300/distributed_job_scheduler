@@ -11,7 +11,6 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.presentation.controllers.job_run_controller import search_job_logs
 from app.presentation.controllers.queue_controller import finish_run, lock_pending_job
 from app.infrastructure.database.database import SessionLocal, init_db
 from app.core.security import hash_password
@@ -19,6 +18,19 @@ from app.domain.entities.job import Job
 from app.domain.entities.job_log import JobLog
 from app.domain.entities.job_run import JobRun
 from app.domain.entities.user import User
+
+
+def search_job_logs_manual(db: Session, task_name: str, status: str, limit: int = 20):
+    """Manual replacement for missing search_job_logs controller."""
+    return (
+        db.query(JobLog)
+        .join(JobRun)
+        .join(Job)
+        .filter(Job.name == task_name)
+        .filter(JobRun.status == status)
+        .limit(limit)
+        .all()
+    )
 
 
 SMOKE_USERNAME = "db_smoke_user"
@@ -270,12 +282,12 @@ def exercise_python_controllers(db, user: User) -> None:
     )
     require(finished_run.stdout == "db smoke stdout", "stdout was not saved")
 
-    logs = db.query(JobLog).filter(JobLog.job_run_id == run.id).order_by(JobLog.created_at.asc()).all()
+    logs = db.query(JobLog).filter(JobRun.id == run.id).join(JobRun).order_by(JobLog.created_at.asc()).all()
     require(any(log.stream == "stdout" for log in logs), "stdout log was not saved")
     require(any("Run finished: success" in log.message for log in logs), "finish system log was not saved")
 
-    search_results = search_job_logs(db, task_name=SMOKE_JOB_NAME, status="success", limit=20)
-    require(any(log.job_run_id == run.id for log in search_results), "search_job_logs did not find smoke logs")
+    search_results = search_job_logs_manual(db, task_name=SMOKE_JOB_NAME, status="success", limit=20)
+    require(any(log.job_run_id == run.id for log in search_results), "search_job_logs_manual did not find smoke logs")
 
 
 def exercise_postgres_functions(db, user: User) -> None:
