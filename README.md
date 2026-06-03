@@ -345,3 +345,5 @@ ConfigMap to `/docker-entrypoint-initdb.d` and stores data in a PVC.
 - Automated integration tests
 - Stricter shell sandboxing
 - Centralized logs with Loki or object storage
+
+<!-- CI Trigger -->
