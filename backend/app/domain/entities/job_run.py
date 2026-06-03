@@ -29,8 +29,6 @@ class JobRun(Base):
             name="ck_job_runs_task_type",
         ),
         CheckConstraint("timeout_seconds > 0", name="ck_job_runs_timeout_positive"),
-        Index("idx_job_runs_status_created_at", "status", "created_at"),
-        Index("idx_job_runs_pending_queue", "created_at", postgresql_where=text("status = 'pending'")),
         Index("idx_job_runs_user_id", "user_id"),
         Index("idx_job_runs_user_start_time", "user_id", "start_time"),
         Index("idx_job_runs_start_time", "start_time"),
@@ -113,12 +111,22 @@ class JobRun(Base):
     def complete(self, end_time: datetime | None = None):
         """Domain Logic: Mark the run as completed and calculate duration."""
         self.end_time = end_time or datetime.now(timezone.utc)
+        
+        # Ensure end_time is timezone-aware
+        if self.end_time.tzinfo is None:
+            self.end_time = self.end_time.replace(tzinfo=timezone.utc)
+            
         self.heartbeat_at = self.end_time
         self.locked_by = None
         self.locked_until = None
         
         if self.start_time:
-            elapsed = max(0.001, (self.end_time - self.start_time).total_seconds())
+            # Ensure start_time is timezone-aware for subtraction
+            st = self.start_time
+            if st.tzinfo is None:
+                st = st.replace(tzinfo=timezone.utc)
+                
+            elapsed = max(0.001, (self.end_time - st).total_seconds())
             self.duration_ms = max(1, int(round(elapsed * 1000)))
             self.duration_seconds_decimal = round(self.duration_ms / 1000, 3)
             self.duration_seconds = max(1, int(ceil(elapsed)))
@@ -126,6 +134,11 @@ class JobRun(Base):
     def start(self, start_time: datetime | None = None):
         """Domain Logic: Mark the run as started."""
         now = start_time or datetime.now(timezone.utc)
+        
+        # Ensure now is timezone-aware
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+            
         if self.start_time is None:
             self.start_time = now
         self.heartbeat_at = now
