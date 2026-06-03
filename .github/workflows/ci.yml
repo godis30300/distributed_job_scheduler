@@ -84,6 +84,7 @@ jobs:
             backend/coverage.xml
 
   sonarqube:
+    if: ${{ secrets.SONAR_HOST_URL != '' && secrets.SONAR_TOKEN != '' }}
     needs:
       - backend-pytest
     runs-on: ubuntu-latest
