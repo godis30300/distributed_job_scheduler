@@ -5,8 +5,9 @@ metadata:
   namespace: job-scheduler
 type: Opaque
 stringData:
-  DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/jobscheduler
-  JWT_SECRET_KEY: change-me-in-production
+  DATABASE_URL: ${JOB_SCHEDULER_DATABASE_URL}
+  JWT_SECRET_KEY: ${JOB_SCHEDULER_JWT_SECRET_KEY}
+  POSTGRES_PASSWORD: ${JOB_SCHEDULER_POSTGRES_PASSWORD}
 ---
 apiVersion: v1
 kind: ConfigMap

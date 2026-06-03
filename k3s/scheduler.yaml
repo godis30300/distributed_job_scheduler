@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: scheduler
 spec:
+  imagePullSecrets:
+  - name: registry-secret
   replicas: 1
   selector:
     matchLabels:
@@ -12,26 +14,22 @@ spec:
       labels:
         app: scheduler
     spec:
-      imagePullSecrets:
-      - name: registry-secret
       containers:
       - name: scheduler
         image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend
         imagePullPolicy: IfNotPresent
         command: ["python", "-m", "app.services.scheduler_loop"]
-        env:
-        - name: DATABASE_URL
-          value: "postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler"
-        - name: JWT_SECRET_KEY
-          value: "change-me-in-production"
-        - name: PYTHONUNBUFFERED
-          value: "1"
+        envFrom:
+        - secretRef:
+            name: job-scheduler-secret
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker
 spec:
+  imagePullSecrets:
+  - name: registry-secret
   replicas: 1
   selector:
     matchLabels:
@@ -41,19 +39,14 @@ spec:
       labels:
         app: worker
     spec:
-      imagePullSecrets:
-      - name: registry-secret
       containers:
       - name: worker
         image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend
         imagePullPolicy: IfNotPresent
         command: ["python", "-m", "app.services.worker_loop"]
         env:
-        - name: DATABASE_URL
-          value: "postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler"
-        - name: JWT_SECRET_KEY
-          value: "change-me-in-production"
         - name: WORKER_ID
           value: "worker-k8s-1"
-        - name: PYTHONUNBUFFERED
-          value: "1"
+        envFrom:
+        - secretRef:
+            name: job-scheduler-secret

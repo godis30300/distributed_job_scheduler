@@ -9,12 +9,9 @@ class Settings(BaseSettings):
     app_name: str = "Distributed Asynchronous Job Scheduler"
     api_prefix: str = "/api"
 
-    database_url: str = Field(
-        default="postgresql+psycopg2://postgres:postgres@localhost:5432/jobscheduler",
-        alias="DATABASE_URL",
-    )
+    database_url: str = Field(alias="DATABASE_URL")
 
-    jwt_secret_key: str = Field(default="change-me", alias="JWT_SECRET_KEY")
+    jwt_secret_key: str = Field(alias="JWT_SECRET_KEY")
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
 

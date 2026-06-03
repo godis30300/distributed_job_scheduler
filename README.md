@@ -44,6 +44,20 @@ distributed_job_scheduler/
 
 ## Quick Start
 
+Copy the root environment template first:
+
+```bash
+cp .env.example .env
+```
+
+Required secret values now live in `.env` for local Docker Compose:
+
+- `POSTGRES_PASSWORD`
+- `JWT_SECRET_KEY`
+- `SECRET_KEY`
+
+Then start the stack:
+
 ```bash
 docker compose up --build
 ```
@@ -233,25 +247,34 @@ logs in with JWT, changes the password, and exercises job CRUD, shell/python
 execution, retry, cancel, worker finish, scheduler, logs, dashboard, and
 metrics.
 
-## GitLab CI
+## GitHub Actions
 
-This repository includes a minimal GitLab pipeline in `.gitlab-ci.yml`.
+This repository uses GitHub Actions in `.github/workflows/ci.yml`.
 
-Pipeline jobs:
+Workflow jobs:
 
-- `backend_pytest`: runs the fast pytest slice for backend scheduling and worker behavior.
-- `backend_db_smoke`: starts PostgreSQL, applies schema plus migrations, and runs `python scripts/db_smoke_test.py`.
-- `docker_build_backend`: builds the backend Docker image on the default branch and tags.
-- `docker_build_frontend`: builds the frontend Docker image on the default branch and tags.
+- `backend-pytest`: starts PostgreSQL, applies schema plus migrations, then runs the backend pytest slice and exports JUnit plus coverage reports.
+- `backend-db-smoke`: starts PostgreSQL, applies schema plus migrations, and runs `python backend/scripts/db_smoke_test.py`.
+- `docker-build`: builds the backend and frontend Docker images on `main` pushes and tags.
+- `sonarqube`: runs after the test jobs and scans the repository when SonarQube secrets are configured.
 
-The test jobs use a GitLab PostgreSQL service with:
+The workflow test jobs use:
 
-- `DATABASE_URL=postgresql+psycopg2://postgres:postgres@postgres:5432/jobscheduler`
-- `JWT_SECRET_KEY=gitlab-ci-secret`
+- `CI_POSTGRES_PASSWORD` from GitHub Secrets
+- `CI_JWT_SECRET_KEY` from GitHub Secrets
 
-This version does not push images or deploy them. If your GitLab runner does
-not allow Docker-in-Docker, keep the test jobs and replace the two image build
-jobs with the image builder supported by your runner.
+The workflow does not push images or deploy them.
+
+For Kubernetes manifests under `deploy/k8s`, fill the secret placeholders from environment variables before applying:
+
+```bash
+export JOB_SCHEDULER_DATABASE_URL='postgresql+psycopg2://postgres:your-password@postgres:5432/jobscheduler'
+export JOB_SCHEDULER_JWT_SECRET_KEY='your-jwt-secret'
+export JOB_SCHEDULER_POSTGRES_PASSWORD='your-password'
+envsubst < deploy/k8s/01-config.yaml | kubectl apply -f -
+kubectl apply -f deploy/k8s/02-postgres.yaml
+kubectl apply -f deploy/k8s/03-backend.yaml
+```
 
 ## Static Code Analysis (SonarQube)
 
@@ -260,13 +283,27 @@ The project includes a SonarQube instance for static code analysis.
 ### Setup & Scan
 
 1. **Start SonarQube Server**:
+
    ```bash
    docker compose up -d sonarqube
    ```
+
 2. **Run Scanner**:
+
    ```bash
+  export SONAR_TOKEN=your-sonarqube-token
+  export SONAR_HOST_URL=http://sonarqube:9000
    ./run-sonar.sh
    ```
+
+### GitHub Actions Secrets
+
+To enable the `sonarqube` job in GitHub Actions, add these repository secrets:
+
+- `SONAR_HOST_URL`: the SonarQube server URL reachable from the runner
+- `SONAR_TOKEN`: a SonarQube token with permission to run scans
+
+If either secret is missing, the workflow skips the SonarQube job and still runs the test and Docker build jobs.
 
 ### Access Results
 
@@ -275,6 +312,7 @@ The project includes a SonarQube instance for static code analysis.
 - **Credentials**:
   - **Username**: `admin`
   - **Password**: `AdminPassword123!`
+
 
 ## Kubernetes
 

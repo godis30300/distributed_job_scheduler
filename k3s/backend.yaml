@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: backend
 spec:
+  imagePullSecrets:
+  - name: registry-secret
   replicas: 1
   selector:
     matchLabels:
@@ -12,14 +14,12 @@ spec:
       labels:
         app: backend
     spec:
-      imagePullSecrets:
-      - name: registry-secret
       containers:
       - name: backend
         image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend
-        env:
-        - name: DATABASE_URL
-          value: "postgresql://postgres:postgres@db:5432/jobscheduler"
+        envFrom:
+        - secretRef:
+            name: job-scheduler-secret
         ports:
         - containerPort: 8000
 ---

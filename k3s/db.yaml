@@ -7,7 +7,7 @@ data:
     -- PostgreSQL schema for Distributed Asynchronous Job Scheduler
     -- Owner module: PostgreSQL / Log / DB Controller
     -- This schema is aligned with backend/app/models and the FastAPI contract.
-    -- Owner: ?°é?ï½œPostgreSQL / Log / DB Controller
+    -- Owner: ?ï¿½ï¿½?ï½œPostgreSQL / Log / DB Controller
 
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -562,6 +562,17 @@ spec:
     requests:
       storage: 5Gi
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: job-scheduler-secret
+type: Opaque
+stringData:
+  DATABASE_URL: postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@db:5432/jobscheduler
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  PYTHONUNBUFFERED: "1"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -585,7 +596,10 @@ spec:
         - name: POSTGRES_USER
           value: "postgres"
         - name: POSTGRES_PASSWORD
-          value: "postgres"
+          valueFrom:
+            secretKeyRef:
+              name: job-scheduler-secret
+              key: POSTGRES_PASSWORD
         - name: PGDATA
           value: "/var/lib/postgresql/data/pgdata"
         ports:

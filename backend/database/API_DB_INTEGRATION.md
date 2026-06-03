@@ -7,13 +7,13 @@
 Docker Compose 內部服務使用：
 
 ```env
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/jobscheduler
+DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@db:5432/jobscheduler
 ```
 
 本機直接連 PostgreSQL 使用：
 
 ```env
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/jobscheduler
+DATABASE_URL=postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@localhost:5432/jobscheduler
 ```
 
 初始化資料庫：
