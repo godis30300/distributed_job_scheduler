@@ -73,8 +73,7 @@ jobs:
             --junitxml=backend/test-reports/pytest.xml \
             --cov=backend/app \
             --cov-report=xml:backend/coverage.xml \
-            backend/app/tests/test_schedule_utils.py \
-            backend/app/tests/test_worker_lifecycle.py
+            backend/tests
 
       - name: Upload backend test reports
         uses: actions/upload-artifact@v4
