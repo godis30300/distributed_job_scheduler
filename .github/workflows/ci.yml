@@ -99,7 +99,7 @@ jobs:
           path: .
 
       - name: SonarQube scan
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: secrets.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
