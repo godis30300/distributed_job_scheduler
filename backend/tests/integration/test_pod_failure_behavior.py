@@ -58,7 +58,7 @@ async def test_mixed_results_same_pod():
     job3_in = JobCreate(
         task_name=f"success-task-3-{uuid.uuid4().hex[:4]}",
         action="shell",
-        action_payload={"command": "echo 'I am successful'"},
+        action_payload={"script": "echo 'I am successful'"},
         schedule_type="manual",
         enabled=True
     )
