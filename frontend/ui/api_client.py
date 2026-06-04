@@ -24,7 +24,7 @@ class BackendAPIClient:
         if 'json' in kwargs:
             headers.setdefault('Content-Type', 'application/json')
         try:
-            response = requests.request(method, url, headers=headers, timeout=8, **kwargs)
+            response = requests.request(method, url, headers=headers, timeout=30, **kwargs)
         except requests.RequestException as exc:
             raise BackendAPIError(f'Cannot connect backend API: {exc}') from exc
 
