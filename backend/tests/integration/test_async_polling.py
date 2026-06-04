@@ -1,4 +1,5 @@
 import pytest
+import uuid
 from sqlalchemy.orm import Session
 from app.domain.entities.job import Job
 from app.domain.entities.job_run import JobRun

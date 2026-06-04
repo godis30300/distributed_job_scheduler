@@ -5,6 +5,7 @@ from math import ceil
 from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.domain.constants import JOB_ACTION_TYPES, JOB_RUN_STATUSES, TRIGGER_TYPES
 from app.infrastructure.database.database import Base
 
 
@@ -12,20 +13,20 @@ class JobRun(Base):
     __tablename__ = "job_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled', 'awaiting_result')",
+            f"status IN {JOB_RUN_STATUSES}",
             name="ck_job_runs_status",
         ),
         CheckConstraint(
-            "trigger_type IN ('schedule', 'manual', 'api', 'retry', 'dependency')",
+            f"trigger_type IN {TRIGGER_TYPES}",
             name="ck_job_runs_trigger_type",
         ),
         CheckConstraint("retry_count >= 0", name="ck_job_runs_retry_count_nonnegative"),
         CheckConstraint(
-            "action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')",
+            f"action_type IN {JOB_ACTION_TYPES}",
             name="ck_job_runs_action_type",
         ),
         CheckConstraint(
-            "task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')",
+            f"task_type IS NULL OR task_type IN {JOB_ACTION_TYPES}",
             name="ck_job_runs_task_type",
         ),
         CheckConstraint("timeout_seconds > 0", name="ck_job_runs_timeout_positive"),

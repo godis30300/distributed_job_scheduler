@@ -6,21 +6,6 @@ from app.domain.entities.user import User
 from app.presentation.dtos.job_schema import JobCreate
 from app.application.services.job_service import JobService
 
-@pytest.fixture(scope="module")
-def db():
-    init_db()
-    _db = SessionLocal()
-    yield _db
-    _db.close()
-
-@pytest.fixture
-def test_user(db):
-    username = f"user_{uuid4().hex[:6]}"
-    user = User(username=username, email=f"{username}@test.com", password_hash="hash")
-    db.add(user)
-    db.commit()
-    return user
-
 def test_create_job_syncs_domain_logic(db, test_user):
     # Arrange
     job_service = JobService(db)
