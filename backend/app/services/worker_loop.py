@@ -1,6 +1,5 @@
 import asyncio
 import os
-import json
 import select
 from datetime import datetime, timezone
 
@@ -19,11 +18,21 @@ POLL_INTERVAL = settings.worker_poll_interval_seconds
 # Semaphore to control concurrency within this Pod
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
 
+# Set to keep references to background tasks to prevent garbage collection
+background_tasks = set()
 
-async def run_job_task(worker_id: str, run_id: str = None):
+def _prepare_payload(run, job):
+    action_payload = run.action_payload if run.action_payload is not None else job.action_payload
+    action_payload = dict(action_payload or {})
+    if run.script is not None:
+        action_payload["script"] = run.script
+    if run.working_dir is not None:
+        action_payload["working_dir"] = run.working_dir
+    return action_payload
+
+async def run_job_task(worker_id: str):
     """
     Independent task to handle a single job execution.
-    If run_id is None, it will try to dequeue one from the DB.
     """
     async with semaphore:
         db = SessionLocal()
@@ -34,14 +43,7 @@ async def run_job_task(worker_id: str, run_id: str = None):
                 return
 
             job = run.job
-            # Prepare payload
-            action_payload = run.action_payload if run.action_payload is not None else job.action_payload
-            action_payload = dict(action_payload or {})
-            if run.script is not None:
-                action_payload["script"] = run.script
-            if run.working_dir is not None:
-                action_payload["working_dir"] = run.working_dir
-            
+            action_payload = _prepare_payload(run, job)
             timeout_seconds = run.timeout_seconds or job.timeout_seconds
             task_type = run.task_type or run.action_type
 
@@ -53,13 +55,12 @@ async def run_job_task(worker_id: str, run_id: str = None):
 
             # 3. Handle Result
             if result.get("status") == "awaiting":
-                # Special Case: Async Long-Running Job
                 logger.info(f"run {run.id} entered awaiting_result status (ext_id: {result.get('external_id')})")
                 run.status = "awaiting_result"
                 run.metadata_json = {"external_id": result.get("external_id")}
                 run.stdout = result.get("stdout")
                 db.commit()
-                return # RELEASE SEMAPHORE AND EXIT
+                return
 
             stderr = result.get("stderr") or ""
             finish_status = "success" if result.get("success") else "failed"
@@ -75,12 +76,12 @@ async def run_job_task(worker_id: str, run_id: str = None):
                 stderr=stderr,
             )
         except Exception as exc:
-            logger.error(f"error in task for run {run.id if 'run' in locals() and run else 'unknown'}: {exc}")
+            logger.error(f"error in task: {exc}")
         finally:
             db.close()
 
 
-async def event_listener(worker_id: str, trigger_event: asyncio.Event):
+async def event_listener(trigger_event: asyncio.Event):
     """
     Coroutine that uses a dedicated connection to LISTEN for DB notifications.
     """
@@ -93,15 +94,10 @@ async def event_listener(worker_id: str, trigger_event: asyncio.Event):
 
     try:
         while True:
-            # Use select to wait for data on the connection without blocking the event loop
-            if select.select([conn], [], [], 5) == ([], [], []):
-                # Timeout, just loop again
-                pass
-            else:
+            if select.select([conn], [], [], 5) != ([], [], []):
                 conn.poll()
                 while conn.notifies:
-                    notify = conn.notifies.pop(0)
-                    # print(f"[worker] received notification: {notify.payload}")
+                    conn.notifies.pop(0)
                     trigger_event.set() # Wake up the queue checker
             await asyncio.sleep(0.1)
     except Exception as e:
@@ -117,34 +113,28 @@ async def worker_main():
     worker_id = os.getenv("WORKER_ID", settings.worker_id)
     logger.info(f"started: {worker_id} (concurrency: {MAX_CONCURRENT_JOBS})")
 
-    # Signal to wake up and check the DB queue
     trigger_event = asyncio.Event()
-    trigger_event.set() # Start with a check
+    trigger_event.set() 
 
-    # Start the DB listener in the background
-    asyncio.create_task(event_listener(worker_id, trigger_event))
+    listener_task = asyncio.create_task(event_listener(trigger_event))
+    background_tasks.add(listener_task)
+    listener_task.add_done_callback(background_tasks.discard)
 
     while True:
         try:
-            # Wait for either a notification or periodic poll
             try:
                 await asyncio.wait_for(trigger_event.wait(), timeout=POLL_INTERVAL)
             except asyncio.TimeoutError:
-                pass # Periodic poll
+                pass 
             
             trigger_event.clear()
 
-            # Try to start as many jobs as possible until concurrency limit or queue empty
-            # We don't want to block the loop, so we create tasks.
-            # Semaphore inside run_job_task will handle the limit.
-            
-            # Since we can't easily peek the queue without locking, we just try to spawn
-            # a few dequeue attempts.
             for _ in range(MAX_CONCURRENT_JOBS):
-                # Only spawn if we haven't reached concurrency limit
                 if semaphore.locked():
                     break
-                asyncio.create_task(run_job_task(worker_id))
+                task = asyncio.create_task(run_job_task(worker_id))
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
                 
         except Exception as exc:
             logger.error(f"main loop error: {exc}")

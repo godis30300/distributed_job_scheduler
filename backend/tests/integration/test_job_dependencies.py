@@ -14,21 +14,6 @@ from app.presentation.dtos.job_schema import JobCreate
 from app.services.schedule_utils import utcnow
 from fastapi import HTTPException
 
-@pytest.fixture(scope="module")
-def db():
-    init_db()
-    _db = SessionLocal()
-    yield _db
-    _db.close()
-
-@pytest.fixture
-def test_user(db: Session):
-    username = f"user_{uuid4().hex[:6]}"
-    user = User(username=username, email=f"{username}@test.com", password_hash="hash")
-    db.add(user)
-    db.commit()
-    return user
-
 def test_job_dependency_blocks_execution(db: Session):
     # Clear existing data
     db.query(JobDependency).delete()

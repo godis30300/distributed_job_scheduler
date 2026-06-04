@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 
+from app.domain.constants import JOB_ACTION_TYPES, JOB_STATUSES
 from app.infrastructure.database.database import Base
 from app.services.schedule_utils import compute_next_run
 
@@ -12,14 +13,14 @@ class Job(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         CheckConstraint(
-            "action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')",
+            f"action_type IN {JOB_ACTION_TYPES}",
             name="ck_jobs_action_type",
         ),
         CheckConstraint(
-            "task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')",
+            f"task_type IS NULL OR task_type IN {JOB_ACTION_TYPES}",
             name="ck_jobs_task_type",
         ),
-        CheckConstraint("status IN ('enabled', 'active', 'paused', 'disabled', 'deleted')", name="ck_jobs_status"),
+        CheckConstraint(f"status IN {JOB_STATUSES}", name="ck_jobs_status"),
         CheckConstraint("timeout_seconds > 0", name="ck_jobs_timeout_positive"),
         CheckConstraint("max_retry >= 0", name="ck_jobs_max_retry_nonnegative"),
         Index("idx_jobs_status", "status"),
