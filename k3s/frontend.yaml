@@ -16,7 +16,7 @@ spec:
       - name: registry-secret
       containers:
       - name: frontend
-        image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/frontend
+        image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/frontend:1.1.1
         imagePullPolicy: IfNotPresent
         command: ["sh", "-c", "python3 manage.py migrate && gunicorn scheduler_frontend.wsgi:application --bind 0.0.0.0:8000"]
         env:
