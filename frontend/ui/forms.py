@@ -20,7 +20,7 @@ class JobForm(forms.Form):
     ]
     ACTION_CHOICES = [
         ('shell', 'Shell Script'),
-        ('python_script', 'Python Script'),
+        ('python', 'Python Script'),
         ('api_call', 'API 呼叫 (HTTP)'),
     ]
     STATUS_CHOICES = [

@@ -42,6 +42,13 @@ class JobBase(BaseModel):
         # Handle 'action_type' vs 'action'
         if "action_type" in normalized and "action" not in normalized:
             normalized["action"] = normalized["action_type"]
+        
+        # Normalize action names
+        if normalized.get("action") == "python_script":
+            normalized["action"] = "python"
+        if normalized.get("task_type") == "python_script":
+            normalized["task_type"] = "python"
+
         # Handle 'max_retry' vs 'retry_limit'
         if "max_retry" in normalized and "retry_limit" not in normalized:
             normalized["retry_limit"] = normalized["max_retry"]

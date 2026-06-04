@@ -75,13 +75,13 @@
       document.getElementById('interval-fields').style.display = scheduleType.value === 'interval' ? 'block' : 'none';
 
       // Action toggles
-      const isScript = actionType.value === 'shell' || actionType.value === 'python_script';
+      const isScript = actionType.value === 'shell' || actionType.value === 'python';
       document.getElementById('script-fields').style.display = isScript ? 'block' : 'none';
       document.getElementById('api-fields').style.display = actionType.value === 'api_call' ? 'block' : 'none';
 
       // Update script content placeholder based on type
       const scriptArea = document.querySelector('[name="script_content"]');
-      if (actionType.value === 'python_script') {
+      if (actionType.value === 'python') {
         scriptArea.placeholder = 'import sys\nprint("Hello from Python")';
       } else {
         scriptArea.placeholder = '#!/bin/bash\necho "Hello from Bash"';

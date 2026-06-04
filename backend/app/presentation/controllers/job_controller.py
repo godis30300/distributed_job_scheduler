@@ -83,7 +83,7 @@ def update_job(db: Session, job_id: str, payload: JobUpdate) -> Job:
             if job.action_type == "api_call":
                 if "api_method" in data: ap["method"] = data["api_method"]
                 if "api_url" in data: ap["url"] = data["api_url"]
-            elif job.action_type in ("shell", "python", "python_script"):
+            elif job.action_type in ("shell", "python"):
                 if "shell_script" in data: ap["script"] = data["shell_script"]
                 if "script" in data: ap["script"] = data["script"]
                 if "script_content" in data: ap["content"] = data["script_content"]

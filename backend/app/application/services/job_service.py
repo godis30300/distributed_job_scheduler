@@ -28,7 +28,7 @@ class JobService:
                 action_payload["method"] = payload.api_method
             if "url" not in action_payload and payload.api_url:
                 action_payload["url"] = payload.api_url
-        elif action_type in ("shell", "python", "python_script"):
+        elif action_type in ("shell", "python"):
             if "script" not in action_payload and (payload.shell_script or payload.script):
                 action_payload["script"] = payload.shell_script or payload.script
             if "content" not in action_payload and (payload.script_content or payload.script):
