@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: backend
 spec:
-  imagePullSecrets:
-  - name: registry-secret
   replicas: 1
   selector:
     matchLabels:
@@ -16,7 +14,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend
+        image: ctaihsnl/cloudfinal-backend:1.2.0
         envFrom:
         - secretRef:
             name: job-scheduler-secret
