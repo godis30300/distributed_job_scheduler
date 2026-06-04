@@ -13,8 +13,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.core.database import SessionLocal
-from app.models.user import User
+from app.domain.entities.user import User
+from app.infrastructure.database.database import SessionLocal
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")

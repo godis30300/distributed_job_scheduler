@@ -75,6 +75,7 @@ class JobCreate(JobBase):
     depends_on: Optional[list[str]] = None
 
 class JobUpdate(BaseModel):
+    name: Optional[str] = None
     task_name: Optional[str] = Field(None, pattern=NAME_PATTERN)
     description: Optional[str] = None
     status: Optional[str] = None
@@ -82,11 +83,13 @@ class JobUpdate(BaseModel):
     cron_expression: Optional[str] = None
     interval_seconds: Optional[int] = None
     action: Optional[str] = None
+    task_type: Optional[str] = None
     api_method: Optional[str] = None
     api_url: Optional[str] = None
     working_dir: Optional[str] = None
     shell_script: Optional[str] = None
     script_content: Optional[str] = None
+    script: Optional[str] = None
     timeout_seconds: Optional[int] = None
     retry_limit: Optional[int] = None
     depends_on: Optional[list[str]] = None
@@ -95,8 +98,12 @@ class JobResponse(BaseModel):
     id: str
     user: str
     created_by: Optional[str] = None
+    name: Optional[str] = None
     task_name: Optional[str] = None
     action: Optional[str] = None
+    task_type: Optional[str] = None
+    script: Optional[str] = None
+    working_dir: Optional[str] = None
     action_type: Optional[str] = None
     action_payload: dict[str, Any]
     status: str = "enabled"
@@ -122,20 +129,17 @@ class JobResponse(BaseModel):
     def normalize_for_response(cls, data: Any) -> Any:
         # This validator ensures that the backend Model fields are correctly mapped to Response fields
         if hasattr(data, "id"): # It's a SQLAlchemy model
-            # For depends_on, we want task_names
-            depends_on = []
-            if hasattr(data, "id"):
-                # We need a way to get dependency names. 
-                # For now, let's just use the job_id if we don't have a better way.
-                # Actually, Job entity might have a relationship.
-                pass
-
+            username = getattr(getattr(data, "creator", None), "username", None) or getattr(data, "user", "unknown")
             normalized = {
                 "id": str(data.id),
-                "user": getattr(data.user, "username", "unknown") if hasattr(data, "user") else "unknown",
-                "created_by": getattr(data.user, "username", "unknown") if hasattr(data, "user") else "unknown",
+                "user": username,
+                "created_by": username,
+                "name": data.name,
                 "task_name": data.task_name,
                 "action": data.action_type,
+                "task_type": data.task_type,
+                "script": data.script,
+                "working_dir": data.working_dir,
                 "action_type": data.action_type,
                 "action_payload": data.action_payload,
                 "status": data.status,

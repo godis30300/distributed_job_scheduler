@@ -124,7 +124,7 @@ def set_job_enabled(db: Session, job_id: str, enabled: bool) -> Job:
 def trigger_job(db: Session, job_id: str, current_user: User | None = None, trigger_type: str = "manual") -> JobRun:
     job = get_job_or_404(db, job_id)
 
-    if not job.enabled:
+    if trigger_type == "schedule" and not job.enabled:
         raise HTTPException(status_code=400, detail="無法執行已停用的任務。請先啟用該 Job。")
     
     # DDD: Respect dependencies even for manual triggers
