@@ -2,10 +2,10 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.controllers.system_controller import health_check
+from app.presentation.controllers.system_controller import health_check
 from app.core.config import get_settings
-from app.core.database import get_db, init_db
-from app.routers import (
+from app.infrastructure.database.database import get_db, init_db
+from app.presentation.api import (
     auth_router,
     dashboard_router,
     job_router,
