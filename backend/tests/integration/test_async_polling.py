@@ -15,8 +15,8 @@ def async_job(db: Session):
         task_name=task_name,
         action_type="api_poll", # 新的 action type
         action_payload={
-            "trigger_url": "http://external-api/start",
-            "status_url": "http://external-api/status/{external_id}"
+            "trigger_url": "https://external-api/start",
+            "status_url": "https://external-api/status/{external_id}"
         },
         schedule_rule="manual",
         status="enabled"

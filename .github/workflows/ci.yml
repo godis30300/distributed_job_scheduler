@@ -35,9 +35,9 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.11"
           cache: pip
@@ -83,7 +83,7 @@ jobs:
             tests/integration/
 
       - name: Upload backend test reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: backend-test-reports
           path: |
@@ -91,7 +91,7 @@ jobs:
             backend/coverage.xml
 
       - name: Cache SonarCloud packages
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -108,7 +108,7 @@ jobs:
           test -n "$SONAR_ORGANIZATION" || (echo "Missing GitHub variable: SONAR_ORGANIZATION" && exit 1)
 
       - name: SonarCloud Code Analysis
-        uses: SonarSource/sonarqube-scan-action@v7
+        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
