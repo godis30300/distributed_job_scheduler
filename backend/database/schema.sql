@@ -40,6 +40,18 @@ DO $$ BEGIN
     CREATE TYPE job_run_status AS ENUM ('pending', 'running', 'success', 'failed', 'timeout', 'canceled', 'awaiting_result');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+CREATE OR REPLACE FUNCTION const_pending_status() RETURNS job_run_status AS $$
+BEGIN
+    RETURN const_pending()::job_run_status;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION const_running_status() RETURNS job_run_status AS $$
+BEGIN
+    RETURN const_running()::job_run_status;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
     username VARCHAR(80) NOT NULL UNIQUE,
@@ -143,7 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_due_schedule
     WHERE enabled = TRUE AND status IN (const_enabled(), const_active()) AND next_run_at IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_job_runs_status_created_at ON job_runs(status, created_at);
-CREATE INDEX IF NOT EXISTS idx_job_runs_pending_queue ON job_runs(created_at) WHERE status = 'pending'::job_run_status;
+CREATE INDEX IF NOT EXISTS idx_job_runs_pending_queue ON job_runs(created_at) WHERE status = const_pending_status();
 CREATE INDEX IF NOT EXISTS idx_job_runs_job_id ON job_runs(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_runs_job_status_created_at ON job_runs(job_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_runs_user_id ON job_runs(user_id);
@@ -153,7 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_job_runs_locked_until ON job_runs(locked_until);
 CREATE INDEX IF NOT EXISTS idx_job_runs_task_type_created_at ON job_runs(task_type, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_runs_running_locks
     ON job_runs(locked_until)
-    WHERE status = 'running'::job_run_status AND locked_until IS NOT NULL;
+    WHERE status = const_running_status() AND locked_until IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_job_logs_run_created_at ON job_logs(job_run_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_logs_level_created_at ON job_logs(log_level, created_at);
