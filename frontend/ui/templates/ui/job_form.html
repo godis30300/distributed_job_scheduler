@@ -79,11 +79,15 @@
       document.getElementById('script-fields').style.display = isScript ? 'block' : 'none';
       document.getElementById('api-fields').style.display = actionType.value === 'api_call' ? 'block' : 'none';
 
-      // Update script content placeholder based on type
+      // Update script content placeholder and label based on type
       const scriptArea = document.querySelector('[name="script_content"]');
+      const scriptLabel = document.querySelector('label[for="' + scriptArea.id + '"]');
+      
       if (actionType.value === 'python') {
+        scriptLabel.textContent = '腳本內容 (Python Code)';
         scriptArea.placeholder = 'import sys\nprint("Hello from Python")';
       } else {
+        scriptLabel.textContent = '腳本內容 (Linux Script)';
         scriptArea.placeholder = '#!/bin/bash\necho "Hello from Bash"';
       }
     }

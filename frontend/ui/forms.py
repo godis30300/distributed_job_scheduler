@@ -45,7 +45,7 @@ class JobForm(forms.Form):
     # Script parameters
     working_dir = forms.CharField(label='工作目錄 (Working Dir)', required=False, help_text='例如：/app/scripts')
     shell_script = forms.CharField(label='腳本名稱 (選填)', required=False, help_text='例如：hello.sh')
-    script_content = forms.CharField(label='腳本內容 (Linux Script)', widget=forms.Textarea(attrs={'rows': 10, 'placeholder': '#!/bin/bash\necho "Hello World"'}), required=False)
+    script_content = forms.CharField(label='腳本內容', widget=forms.Textarea(attrs={'rows': 10, 'placeholder': '#!/bin/bash\necho "Hello World"'}), required=False)
     
     timeout_seconds = forms.IntegerField(label='Timeout 秒數', min_value=1, initial=300)
     retry_limit = forms.IntegerField(label='Retry 次數', min_value=0, initial=3)
