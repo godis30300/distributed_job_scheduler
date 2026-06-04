@@ -86,5 +86,8 @@ class BackendAPIClient:
     def retry_run(self, run_id):
         return self._request('POST', f'/job-runs/{run_id}/retry')
 
+    def clear_all_runs(self):
+        return self._request('POST', '/job-runs/clear')
+
     def health(self):
         return self._request('GET', '/health')

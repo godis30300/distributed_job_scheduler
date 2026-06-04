@@ -35,6 +35,7 @@
         <td class="actions">
           <form method="post" action="{% url 'job_run' job.id %}">{% csrf_token %}<button class="btn small" type="submit">Run</button></form>
           <a class="btn small" href="{% url 'job_edit' job.id %}">Edit</a>
+          <form method="post" action="{% url 'job_delete' job.id %}" onsubmit="return confirm('確定要刪除這個 Job？')">{% csrf_token %}<button class="btn small danger" type="submit">Delete</button></form>
         </td>
       </tr>
       {% empty %}
