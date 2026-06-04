@@ -331,6 +331,20 @@ def job_runs_partial_view(request):
     return render(request, 'ui/partials/run_table.html', {'runs': runs})
 
 
+@require_POST
+def job_runs_clear_view(request):
+    redirect_response = _require_login(request)
+    if redirect_response:
+        return redirect_response
+    try:
+        if not settings.DEMO_MODE:
+            _client(request).clear_all_runs()
+        messages.success(request, '已清理所有執行紀錄。')
+    except BackendAPIError as exc:
+        messages.error(request, f'清理失敗：{exc}')
+    return redirect('job_runs')
+
+
 def job_run_logs_view(request, run_id):
     redirect_response = _require_login(request)
     if redirect_response:

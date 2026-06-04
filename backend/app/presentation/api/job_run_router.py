@@ -58,6 +58,17 @@ def search_logs(
     )
 
 
+@router.post("/clear")
+def clear_all_runs(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    """Clear all job runs and logs."""
+    from app.domain.entities.job_log import JobLog
+    from app.domain.entities.job_run import JobRun
+    db.query(JobLog).delete()
+    db.query(JobRun).delete()
+    db.commit()
+    return {"message": "All records cleared"}
+
+
 @router.get("/{run_id}", response_model=JobRunResponse)
 def get_job_run(run_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     return job_run_controller.get_run_or_404(db, run_id)

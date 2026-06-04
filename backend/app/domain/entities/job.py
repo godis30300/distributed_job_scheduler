@@ -121,10 +121,6 @@ class Job(Base):
         # 4. Normalize action_payload
         if self.action_payload is None:
             self.action_payload = {}
-        if self.script is not None:
-            self.action_payload["script"] = self.script
-        if self.working_dir is not None:
-            self.action_payload["working_dir"] = self.working_dir
 
     @property
     def action(self) -> str:

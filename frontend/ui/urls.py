@@ -15,6 +15,7 @@ urlpatterns = [
     path('jobs/<str:job_id>/run/', views.job_run_view, name='job_run'),
     path('runs/', views.job_runs_view, name='job_runs'),
     path('runs/partial/', views.job_runs_partial_view, name='job_runs_partial'),
+    path('runs/clear/', views.job_runs_clear_view, name='job_runs_clear'),
     path('runs/<str:run_id>/logs/', views.job_run_logs_view, name='job_run_logs'),
     path('runs/<str:run_id>/retry/', views.job_retry_view, name='job_retry'),
     path('health/', views.health_view, name='health'),

@@ -16,7 +16,18 @@
       <div id="script-fields" class="sub-fields">
         {{ form.working_dir.label_tag }} {{ form.working_dir }}
         {{ form.shell_script.label_tag }} {{ form.shell_script }}
-        {{ form.script_content.label_tag }} {{ form.script_content }}
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 5px;">
+          <label style="margin: 0;" id="script-content-label">腳本內容</label>
+          <label style="font-size: 13px; font-weight: normal; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="vim-mode-toggle" style="width: auto; vertical-align: middle; margin-right: 5px;">
+            Vim 操作模式
+          </label>
+        </div>
+        <div id="editor" style="height: 400px; width: 100%; border: 1px solid #ccc; border-radius: 4px;"></div>
+        <div style="display:none;">{{ form.script_content }}</div>
+        <div id="vim-status" style="display: none; background: #111; color: #fff; padding: 2px 10px; font-family: monospace; font-size: 12px; border-radius: 0 0 4px 4px;">-- VIM MODE --</div>
+        <small id="lint-hint" style="color: #d9534f; font-weight: bold;"></small>
       </div>
 
       <div id="api-fields" class="sub-fields">
@@ -62,12 +73,73 @@
   .form label { display: block; margin-top: 12px; font-weight: 500; }
   .form input, .form select, .form textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
   .form small { color: #666; font-size: 12px; }
+
+  /* Ace Editor Fixes */
+  .ace_editor .ace_layer span {
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    width: auto !important;
+    height: auto !important;
+    position: static !important;
+  }
   </style>
+
+  <!-- Load Ace Editor via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+  <script>
+    ace.config.set("basePath", "https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/");
+  </script>
 
   <script>
   document.addEventListener('DOMContentLoaded', function() {
     const scheduleType = document.querySelector('[name="schedule_type"]');
     const actionType = document.querySelector('[name="action"]');
+    const scriptContent = document.querySelector('[name="script_content"]');
+    const scriptLabel = document.getElementById('script-content-label');
+    const vimToggle = document.getElementById('vim-mode-toggle');
+    const vimStatus = document.getElementById('vim-status');
+    const jobForm = document.getElementById('job-form');
+
+    // Initialize Ace Editor
+    const editor = ace.edit("editor");
+    editor.setTheme("ace/theme/chrome");
+    editor.setOptions({
+      fontSize: "14px",
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Consolas', monospace",
+      showPrintMargin: false,
+      showGutter: true,
+      highlightActiveLine: true,
+      tabSize: 4,
+      useSoftTabs: true
+    });
+
+    // Set initial value
+    editor.setValue(scriptContent.value || "", -1);
+
+    // Sync editor to hidden textarea
+    editor.on('change', function() {
+      scriptContent.value = editor.getValue();
+    });
+
+    // Vim Mode Toggle
+    vimToggle.addEventListener('change', function() {
+      if (this.checked) {
+        editor.setKeyboardHandler("ace/keyboard/vim");
+        vimStatus.style.display = 'block';
+      } else {
+        editor.setKeyboardHandler(null);
+        vimStatus.style.display = 'none';
+      }
+      localStorage.setItem('ace_vim_mode', this.checked);
+    });
+
+    if (localStorage.getItem('ace_vim_mode') === 'true') {
+      vimToggle.checked = true;
+      editor.setKeyboardHandler("ace/keyboard/vim");
+      vimStatus.style.display = 'block';
+    }
 
     function updateFields() {
       // Schedule toggles
@@ -79,16 +151,16 @@
       document.getElementById('script-fields').style.display = isScript ? 'block' : 'none';
       document.getElementById('api-fields').style.display = actionType.value === 'api_call' ? 'block' : 'none';
 
-      // Update script content placeholder and label based on type
-      const scriptArea = document.querySelector('[name="script_content"]');
-      const scriptLabel = document.querySelector('label[for="' + scriptArea.id + '"]');
-      
       if (actionType.value === 'python') {
         scriptLabel.textContent = '腳本內容 (Python Code)';
-        scriptArea.placeholder = 'import sys\nprint("Hello from Python")';
+        editor.session.setMode("ace/mode/python");
       } else {
         scriptLabel.textContent = '腳本內容 (Linux Script)';
-        scriptArea.placeholder = '#!/bin/bash\necho "Hello from Bash"';
+        editor.session.setMode("ace/mode/sh");
+      }
+      
+      if (isScript) {
+        setTimeout(() => editor.resize(), 10);
       }
     }
 

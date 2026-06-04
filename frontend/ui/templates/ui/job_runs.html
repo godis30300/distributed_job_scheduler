@@ -6,6 +6,12 @@
     <h1>Job Runs</h1>
     <p class="muted">查看任務執行紀錄、Log 與 Retry。</p>
   </div>
+  <div class="actions">
+    <form method="post" action="{% url 'job_runs_clear' %}" onsubmit="return confirm('確定要清除所有執行紀錄嗎？')">
+      {% csrf_token %}
+      <button class="btn danger" type="submit">清理所有紀錄</button>
+    </form>
+  </div>
 </div>
 <div id="run-table-container" hx-get="{% url 'job_runs_partial' %}" hx-trigger="every 5s" hx-swap="innerHTML">
   {% include 'ui/partials/run_table.html' with runs=runs %}
