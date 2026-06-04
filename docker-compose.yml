@@ -71,6 +71,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        SECRET_KEY: ${SECRET_KEY}
     environment:
       SECRET_KEY: ${SECRET_KEY}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
