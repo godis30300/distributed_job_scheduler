@@ -32,7 +32,7 @@ async def execute_api_call(payload: dict[str, Any], timeout_seconds: int) -> Exe
 
 
 async def execute_shell(payload: dict[str, Any], timeout_seconds: int) -> ExecutionResult:
-    script = payload.get("script") or payload.get("content")
+    script = payload.get("content") or payload.get("script")
     command = payload.get("command")
     args = payload.get("args") or []
 
@@ -80,7 +80,7 @@ async def execute_shell(payload: dict[str, Any], timeout_seconds: int) -> Execut
 
 
 async def execute_python(payload: dict[str, Any], timeout_seconds: int) -> ExecutionResult:
-    script = payload.get("script") or payload.get("content")
+    script = payload.get("content") or payload.get("script")
     if not script:
         return ExecutionResult(success=False, stdout="", stderr="missing python script")
 

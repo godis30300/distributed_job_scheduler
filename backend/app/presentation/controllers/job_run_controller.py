@@ -136,3 +136,32 @@ def get_job_run_logs(db: Session, run_id: str) -> list[JobLog]:
 
 def list_logs(db: Session, run_id: str) -> list[JobLog]:
     return get_job_run_logs(db, run_id)
+
+
+def search_job_logs(
+    db: Session,
+    task_name: str | None = None,
+    status: str | None = None,
+    user_id: str | None = None,
+    log_level: str | None = None,
+    start_time_from: datetime | None = None,
+    start_time_to: datetime | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[JobLog]:
+    query = db.query(JobLog).join(JobRun, JobRun.id == JobLog.job_run_id).join(Job, Job.id == JobRun.job_id)
+
+    if task_name:
+        query = query.filter((Job.task_name == task_name) | (Job.name == task_name))
+    if status:
+        query = query.filter(JobRun.status == status)
+    if user_id:
+        query = query.filter(JobRun.user_id == user_id)
+    if log_level:
+        query = query.filter(JobLog.log_level == log_level.lower())
+    if start_time_from:
+        query = query.filter(JobRun.start_time >= start_time_from)
+    if start_time_to:
+        query = query.filter(JobRun.start_time <= start_time_to)
+
+    return query.order_by(JobLog.created_at.desc()).offset(offset).limit(limit).all()

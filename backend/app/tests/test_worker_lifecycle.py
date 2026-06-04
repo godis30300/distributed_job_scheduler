@@ -5,9 +5,9 @@ from datetime import datetime, timedelta, timezone
 from app.controllers.job_controller import create_job
 from app.controllers.queue_controller import dequeue_next_run, finish_run, add_log
 from app.controllers.scheduler_controller import scan_due_jobs
-from app.core.database import SessionLocal, init_db
-from app.models.user import User
-from app.models.job_run import JobRun
+from app.domain.entities.job_run import JobRun
+from app.domain.entities.user import User
+from app.infrastructure.database.database import SessionLocal, init_db
 from app.schemas.job_schema import JobCreate
 import asyncio
 from app.services.executor import execute_job

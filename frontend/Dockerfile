@@ -15,7 +15,7 @@ COPY . .
 # Ensure all python files use Linux line endings
 RUN find . -type f -name "*.py" -exec dos2unix {} +
 
-RUN SECRET_KEY=dummy-build-key python manage.py collectstatic --noinput
+RUN SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')" python manage.py collectstatic --noinput
 
 EXPOSE 8000
 CMD ["gunicorn", "scheduler_frontend.wsgi:application", "--bind", "0.0.0.0:8000"]
