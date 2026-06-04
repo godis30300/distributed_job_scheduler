@@ -267,18 +267,6 @@ What the checks cover:
   password change, job CRUD/update, execution output, retry, cancel, heartbeat,
   worker finish, scheduler, system endpoints, metrics, and soft delete.
 
-## Screenshot Checklist For Reports
-
-If your submission requires screenshots, capture these pages or command outputs:
-
-- Docker Desktop or `docker ps` showing `db`, `backend`, `scheduler`, `worker`,
-  and `frontend` running for this project.
-- API docs at `http://localhost:8000/docs`.
-- Frontend dashboard at `http://localhost:5173`.
-- Job list showing enabled/manual jobs.
-- Job run detail or logs showing shell/Python stdout.
-- Terminal output showing the three successful project tests.
-- `kubectl kustomize .` output or a screenshot of rendered Kubernetes resources.
 
 ## Kubernetes
 
