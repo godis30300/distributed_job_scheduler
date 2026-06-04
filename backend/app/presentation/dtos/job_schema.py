@@ -53,6 +53,12 @@ class JobBase(BaseModel):
         if "max_retry" in normalized and "retry_limit" not in normalized:
             normalized["retry_limit"] = normalized["max_retry"]
         
+        # Handle script fields
+        if "script_content" in normalized and "script" not in normalized:
+            normalized["script"] = normalized["script_content"]
+        if "shell_script" in normalized and "script" not in normalized:
+            normalized["script"] = normalized["shell_script"]
+
         # Handle 'schedule_rule' to DDD fields
         if "schedule_rule" in normalized:
             rule = normalized["schedule_rule"]
