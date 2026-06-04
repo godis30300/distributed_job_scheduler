@@ -49,3 +49,10 @@ class JobForm(forms.Form):
     
     timeout_seconds = forms.IntegerField(label='Timeout 秒數', min_value=1, initial=300)
     retry_limit = forms.IntegerField(label='Retry 次數', min_value=0, initial=3)
+    
+    depends_on = forms.MultipleChoiceField(
+        label='相依任務 (Depends On)',
+        required=False,
+        widget=forms.SelectMultiple(attrs={'size': '5'}),
+        help_text='選取此任務執行前必須成功完成的任務。'
+    )

@@ -21,6 +21,21 @@ class JobService:
         task_name = payload.task_name
         action_type = payload.action or payload.task_type
         
+        # Build action_payload from flat fields if it's empty or missing keys
+        action_payload = payload.action_payload or {}
+        if action_type == "api_call":
+            if "method" not in action_payload and payload.api_method:
+                action_payload["method"] = payload.api_method
+            if "url" not in action_payload and payload.api_url:
+                action_payload["url"] = payload.api_url
+        elif action_type in ("shell", "python", "python_script"):
+            if "script" not in action_payload and (payload.shell_script or payload.script):
+                action_payload["script"] = payload.shell_script or payload.script
+            if "content" not in action_payload and (payload.script_content or payload.script):
+                action_payload["content"] = payload.script_content or payload.script
+            if "working_dir" not in action_payload and payload.working_dir:
+                action_payload["working_dir"] = payload.working_dir
+        
         job = Job(
             name=payload.name or task_name,
             task_name=task_name,
@@ -28,7 +43,7 @@ class JobService:
             script=payload.script,
             working_dir=payload.working_dir,
             action_type=action_type,
-            action_payload=payload.action_payload or {},
+            action_payload=action_payload,
             schedule_rule=resolve_schedule_rule(payload),
             timeout_seconds=payload.timeout_seconds,
             max_retry=payload.retry_limit,
@@ -73,6 +88,34 @@ class JobService:
 
     def list_jobs(self) -> list[Job]:
         return self.repository.list()
+
+    def update_dependencies(self, job_id: str, depends_on_names: list[str]) -> None:
+        """
+        Reconcile job dependencies.
+        """
+        # 1. Clear existing dependencies
+        self.db.query(JobDependency).filter(JobDependency.job_id == job_id).delete()
+        
+        # 2. Add new ones
+        if not depends_on_names:
+            return
+
+        for dep_name in depends_on_names:
+            dep_job = self.repository.find_by_task_name(dep_name)
+            if not dep_job:
+                dep_job = self.repository.get(dep_name)
+            
+            if not dep_job:
+                raise ValueError(f"Dependency job '{dep_name}' not found")
+            
+            dependency = JobDependency(
+                job_id=job_id,
+                depends_on_job_id=dep_job.id,
+                required_status="success"
+            )
+            self.db.add(dependency)
+        
+        self.db.flush()
 
     def scan_due_jobs(self) -> list[JobRun]:
         now = utcnow()

@@ -76,8 +76,27 @@ def update_job(db: Session, job_id: str, payload: JobUpdate) -> Job:
     
     if "action_payload" in data:
         job.action_payload = data["action_payload"]
+    else:
+        # Re-build action_payload if flat fields were updated but action_payload was not provided
+        if any(key in data for key in ("api_method", "api_url", "shell_script", "script_content", "script", "working_dir")):
+            ap = dict(job.action_payload)
+            if job.action_type == "api_call":
+                if "api_method" in data: ap["method"] = data["api_method"]
+                if "api_url" in data: ap["url"] = data["api_url"]
+            elif job.action_type in ("shell", "python", "python_script"):
+                if "shell_script" in data: ap["script"] = data["shell_script"]
+                if "script" in data: ap["script"] = data["script"]
+                if "script_content" in data: ap["content"] = data["script_content"]
+                if "working_dir" in data: ap["working_dir"] = data["working_dir"]
+            job.action_payload = ap
 
-    # 4. DDD: Re-sync state
+    # 4. Handle dependencies
+    if "depends_on" in data:
+        from app.application.services.job_service import JobService
+        service = JobService(db)
+        service.update_dependencies(job_id, data["depends_on"])
+
+    # 5. DDD: Re-sync state
     job.sync_domain_logic()
 
     db.commit()

@@ -173,3 +173,24 @@ class Job(Base):
     @property
     def created_by(self) -> str:
         return self.user
+
+    @property
+    def depends_on_names(self) -> list[str]:
+        """
+        Get names of jobs this job depends on.
+        """
+        from app.domain.entities.job_dependency import JobDependency
+        # This requires access to the session, but we can use object_session(self)
+        from sqlalchemy.orm import object_session
+        session = object_session(self)
+        if not session:
+            return []
+        
+        return [
+            row.task_name for row in (
+                session.query(Job)
+                .join(JobDependency, JobDependency.depends_on_job_id == Job.id)
+                .filter(JobDependency.job_id == self.id)
+                .all()
+            )
+        ]

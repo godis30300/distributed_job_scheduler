@@ -137,43 +137,23 @@ def job_list_partial_view(request):
 
 
 def _prepare_job_payload(data):
-    # Construct schedule_rule
-    stype = data['schedule_type']
-    if stype == 'cron':
-        schedule_rule = f"cron:{data['cron_expression']}"
-    elif stype == 'interval':
-        schedule_rule = f"every:{data['interval_seconds']}s"
-    else:
-        schedule_rule = "manual"
-
-    # Construct action_payload
-    action_type = data['action']
-    if action_type == 'api_call':
-        action_payload = {
-            "method": data['api_method'],
-            "url": data['api_url'],
-            "headers": {},
-            "body": None
-        }
-    else:  # shell or python_script
-        action_payload = {
-            "script": data.get('shell_script'),
-            "content": data.get('script_content'),
-            "working_dir": data.get('working_dir'),
-            "args": []
-        }
-
     payload = {
         "task_name": data['task_name'],
         "description": data.get('description'),
         "status": data['status'],
-        "action_type": action_type,
-        "action_payload": action_payload,
-        "schedule_rule": schedule_rule,
+        "action": data['action'],
+        "api_method": data.get('api_method'),
+        "api_url": data.get('api_url'),
+        "working_dir": data.get('working_dir'),
+        "shell_script": data.get('shell_script'),
+        "script_content": data.get('script_content'),
+        "schedule_type": data['schedule_type'],
+        "cron_expression": data.get('cron_expression'),
+        "interval_seconds": data.get('interval_seconds'),
         "timeout_seconds": data['timeout_seconds'],
-        "max_retry": data['retry_limit']
+        "retry_limit": data['retry_limit'],
+        "depends_on": data.get('depends_on', [])
     }
-    
     return payload
 
 
@@ -183,31 +163,21 @@ def _prepare_initial_data(job):
         'description': job.get('description'),
         'status': job.get('status'),
         'timeout_seconds': job.get('timeout_seconds'),
-        'retry_limit': job.get('max_retry'),
+        'retry_limit': job.get('retry_limit'),
+        'schedule_type': job.get('schedule_type'),
+        'cron_expression': job.get('cron_expression'),
+        'interval_seconds': job.get('interval_seconds'),
+        'action': job.get('action'),
+        'depends_on': job.get('depends_on', []),
     }
     
-    # Schedule
-    rule = job.get('schedule_rule', '')
-    if rule == 'manual':
-        initial['schedule_type'] = 'manual'
-    elif rule.startswith('cron:'):
-        initial['schedule_type'] = 'cron'
-        initial['cron_expression'] = rule[5:]
-    elif rule.startswith('every:'):
-        initial['schedule_type'] = 'interval'
-        # Simple extraction of seconds
-        val = rule[6:]
-        if val.endswith('s'): val = val[:-1]
-        initial['interval_seconds'] = val
-    
-    # Action
-    atype = job.get('action_type')
-    initial['action'] = atype
+    # Action Payload extraction for flat fields in form
     payload = job.get('action_payload', {})
+    atype = initial['action']
     if atype == 'api_call':
         initial['api_method'] = payload.get('method')
         initial['api_url'] = payload.get('url')
-    elif atype in ['shell', 'python_script']:
+    elif atype in ['shell', 'python', 'python_script']:
         initial['shell_script'] = payload.get('script')
         initial['script_content'] = payload.get('content')
         initial['working_dir'] = payload.get('working_dir')
@@ -220,8 +190,17 @@ def job_create_view(request):
     redirect_response = _require_login(request)
     if redirect_response:
         return redirect_response
+    
+    try:
+        all_jobs = demo_store.list_jobs(request) if settings.DEMO_MODE else _client(request).list_jobs()
+        all_jobs = all_jobs if isinstance(all_jobs, list) else all_jobs.get('items', [])
+        job_choices = [(j['task_name'], j['task_name']) for j in all_jobs]
+    except BackendAPIError:
+        job_choices = []
+
     if request.method == 'POST':
         form = JobForm(request.POST)
+        form.fields['depends_on'].choices = job_choices
         if form.is_valid():
             payload = _prepare_job_payload(form.cleaned_data)
             if settings.DEMO_MODE:
@@ -236,6 +215,7 @@ def job_create_view(request):
             return redirect('job_list')
     else:
         form = JobForm(initial={'status': 'enabled', 'schedule_type': 'manual', 'action': 'api_call'})
+        form.fields['depends_on'].choices = job_choices
     return render(request, 'ui/job_form.html', {'form': form, 'mode': 'create'})
 
 
@@ -261,6 +241,10 @@ def job_edit_view(request, job_id):
         return redirect_response
     try:
         job = demo_store.get_job(request, job_id) if settings.DEMO_MODE else _client(request).get_job(job_id)
+        all_jobs = demo_store.list_jobs(request) if settings.DEMO_MODE else _client(request).list_jobs()
+        all_jobs = all_jobs if isinstance(all_jobs, list) else all_jobs.get('items', [])
+        # Exclude self from choices
+        job_choices = [(j['task_name'], j['task_name']) for j in all_jobs if j['id'] != job_id]
     except BackendAPIError as exc:
         messages.error(request, str(exc))
         return redirect('job_list')
@@ -270,6 +254,7 @@ def job_edit_view(request, job_id):
 
     if request.method == 'POST':
         form = JobForm(request.POST)
+        form.fields['depends_on'].choices = job_choices
         if form.is_valid():
             payload = _prepare_job_payload(form.cleaned_data)
             if settings.DEMO_MODE:
@@ -284,6 +269,7 @@ def job_edit_view(request, job_id):
             return redirect('job_detail', job_id=job_id)
     else:
         form = JobForm(initial=_prepare_initial_data(job))
+        form.fields['depends_on'].choices = job_choices
     return render(request, 'ui/job_form.html', {'form': form, 'mode': 'edit', 'job': job})
 
 

@@ -10,7 +10,7 @@ from app.domain.entities.user import User
 from app.application.services.job_service import JobService
 from app.presentation.controllers.scheduler_controller import scan_due_jobs
 from app.presentation.controllers.job_controller import trigger_job
-from app.presentation.dtos.job_schema import JobCreate
+from app.presentation.dtos.job_schema import JobCreate, JobUpdate
 from app.services.schedule_utils import utcnow
 from fastapi import HTTPException
 
@@ -129,3 +129,44 @@ def test_manual_trigger_respects_dependencies(db: Session, test_user):
     # Trigger B manually - should SUCCESS
     run_b = trigger_job(db, job_b.id, test_user)
     assert run_b.job_id == job_b.id
+
+def test_job_service_update_dependencies(db: Session, test_user):
+    db.query(JobDependency).delete()
+    db.query(JobRun).delete()
+    db.query(Job).delete()
+    db.commit()
+
+    job_service = JobService(db)
+    upstream1 = job_service.create_job(
+        JobCreate(task_name="upstream1", action="shell", schedule_type="manual"),
+        test_user.id
+    )
+    upstream2 = job_service.create_job(
+        JobCreate(task_name="upstream2", action="shell", schedule_type="manual"),
+        test_user.id
+    )
+    downstream = job_service.create_job(
+        JobCreate(task_name="downstream", action="shell", schedule_type="manual", depends_on=["upstream1"]),
+        test_user.id
+    )
+    
+    # Verify initial dependency
+    deps = db.query(JobDependency).filter(JobDependency.job_id == downstream.id).all()
+    assert len(deps) == 1
+    assert deps[0].depends_on_job_id == upstream1.id
+
+    # Update dependencies to both
+    from app.presentation.controllers.job_controller import update_job
+    update_job(db, downstream.id, JobUpdate(depends_on=["upstream1", "upstream2"]))
+    
+    deps = db.query(JobDependency).filter(JobDependency.job_id == downstream.id).all()
+    assert len(deps) == 2
+    dep_job_ids = [d.depends_on_job_id for d in deps]
+    assert upstream1.id in dep_job_ids
+    assert upstream2.id in dep_job_ids
+
+    # Update to empty
+    update_job(db, downstream.id, JobUpdate(depends_on=[]))
+    deps = db.query(JobDependency).filter(JobDependency.job_id == downstream.id).all()
+    assert len(deps) == 0
+

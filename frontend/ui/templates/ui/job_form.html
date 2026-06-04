@@ -43,6 +43,9 @@
       <h3>進階設定</h3>
       {{ form.timeout_seconds.label_tag }} {{ form.timeout_seconds }}
       {{ form.retry_limit.label_tag }} {{ form.retry_limit }}
+      
+      {{ form.depends_on.label_tag }} {{ form.depends_on }}
+      <small>{{ form.depends_on.help_text }}</small>
     </div>
 
     <div class="form-actions">

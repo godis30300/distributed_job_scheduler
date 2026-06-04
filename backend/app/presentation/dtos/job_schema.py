@@ -42,6 +42,26 @@ class JobBase(BaseModel):
         # Handle 'action_type' vs 'action'
         if "action_type" in normalized and "action" not in normalized:
             normalized["action"] = normalized["action_type"]
+        # Handle 'max_retry' vs 'retry_limit'
+        if "max_retry" in normalized and "retry_limit" not in normalized:
+            normalized["retry_limit"] = normalized["max_retry"]
+        
+        # Handle 'schedule_rule' to DDD fields
+        if "schedule_rule" in normalized:
+            rule = normalized["schedule_rule"]
+            if rule == "manual":
+                normalized["schedule_type"] = "manual"
+            elif rule.startswith("cron:"):
+                normalized["schedule_type"] = "cron"
+                normalized["cron_expression"] = rule[5:]
+            elif rule.startswith("every:"):
+                normalized["schedule_type"] = "interval"
+                val = rule[6:]
+                if val.endswith("s"): val = val[:-1]
+                normalized["interval_seconds"] = int(val)
+            else:
+                # Default to manual if unrecognized
+                normalized["schedule_type"] = normalized.get("schedule_type", "manual")
         return normalized
 
 class JobCreate(JobBase):
@@ -62,24 +82,31 @@ class JobUpdate(BaseModel):
     script_content: Optional[str] = None
     timeout_seconds: Optional[int] = None
     retry_limit: Optional[int] = None
+    depends_on: Optional[list[str]] = None
 
 class JobResponse(BaseModel):
     id: str
     user: str
     created_by: Optional[str] = None
     task_name: Optional[str] = None
+    action: Optional[str] = None
     action_type: Optional[str] = None
     action_payload: dict[str, Any]
     status: str = "enabled"
     enabled: bool = True
     description: Optional[str] = None
     schedule_rule: str
+    schedule_type: str
+    cron_expression: Optional[str] = None
+    interval_seconds: Optional[int] = None
     max_retry: int
+    retry_limit: int
     timeout_seconds: int
     next_run_at: Optional[datetime] = None
     last_run_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    depends_on: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -88,23 +115,37 @@ class JobResponse(BaseModel):
     def normalize_for_response(cls, data: Any) -> Any:
         # This validator ensures that the backend Model fields are correctly mapped to Response fields
         if hasattr(data, "id"): # It's a SQLAlchemy model
+            # For depends_on, we want task_names
+            depends_on = []
+            if hasattr(data, "id"):
+                # We need a way to get dependency names. 
+                # For now, let's just use the job_id if we don't have a better way.
+                # Actually, Job entity might have a relationship.
+                pass
+
             normalized = {
                 "id": str(data.id),
                 "user": getattr(data.user, "username", "unknown") if hasattr(data, "user") else "unknown",
                 "created_by": getattr(data.user, "username", "unknown") if hasattr(data, "user") else "unknown",
                 "task_name": data.task_name,
+                "action": data.action_type,
                 "action_type": data.action_type,
                 "action_payload": data.action_payload,
                 "status": data.status,
                 "enabled": data.enabled,
                 "description": data.description,
                 "schedule_rule": data.schedule_rule,
+                "schedule_type": data.schedule_type,
+                "cron_expression": data.cron_expression,
+                "interval_seconds": data.interval_seconds,
                 "max_retry": data.max_retry,
+                "retry_limit": data.max_retry,
                 "timeout_seconds": data.timeout_seconds,
                 "next_run_at": data.next_run_at,
                 "last_run_at": data.last_run_at,
                 "created_at": data.created_at,
                 "updated_at": data.updated_at,
+                "depends_on": getattr(data, "depends_on_names", []),
             }
             return normalized
         return data
