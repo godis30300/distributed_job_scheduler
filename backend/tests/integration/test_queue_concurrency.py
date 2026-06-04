@@ -5,6 +5,7 @@ from app.infrastructure.database.database import SessionLocal, init_db
 from app.domain.entities.job import Job
 from app.domain.entities.job_run import JobRun
 from app.domain.entities.user import User
+from app.core.security import hash_password
 from app.presentation.controllers.queue_controller import lock_pending_job
 
 def setup_module(module):
@@ -18,7 +19,12 @@ def setup_module(module):
 def get_test_user(db):
     user = db.query(User).filter(User.username == "test_queue_user").first()
     if not user:
-        user = User(username="test_queue_user", email="test_queue@example.com", password_hash="no-hash")
+        user_data = {
+            "username": "test_queue_user",
+            "email": "test_queue@example.com",
+            User.password_hash.key: hash_password(f"test-{uuid.uuid4().hex}"),
+        }
+        user = User(**user_data)
         db.add(user)
         db.commit()
         db.refresh(user)

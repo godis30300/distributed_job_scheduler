@@ -9,3 +9,5 @@ dist/
 postgres-data/
 .vscode/
 .pytest_cache/
+.job-scheduler-work/
+backend/.job-scheduler-work/

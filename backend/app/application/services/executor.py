@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 SCRIPTS_DIR = pathlib.Path(__file__).resolve().parents[3] / "scripts"
-DEFAULT_WORK_DIR = pathlib.Path("/tmp/job-scheduler-work")
+DEFAULT_WORK_DIR = pathlib.Path(".job-scheduler-work").resolve()
 
 
 class ExecutionResult(dict):

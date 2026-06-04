@@ -7,6 +7,7 @@ from app.presentation.controllers.queue_controller import dequeue_next_run, fini
 from app.presentation.controllers.scheduler_controller import scan_due_jobs
 from app.infrastructure.database.database import SessionLocal, init_db
 from app.core.logger import logger
+from app.core.security import hash_password
 from app.domain.entities.user import User
 from app.domain.entities.job import Job
 from app.domain.entities.job_run import JobRun
@@ -20,11 +21,14 @@ def setup_module(module):
 def get_test_user(db):
     user = db.query(User).filter(User.username == "test_worker_user").first()
     if not user:
+        user_data = {
+            "username": "test_worker_user",
+            "email": "test_worker@example.com",
+            User.password_hash.key: hash_password(f"test-{uuid.uuid4().hex}"),
+            "role": "admin",
+        }
         user = User(
-            username="test_worker_user",
-            email="test_worker@example.com",
-            password_hash="no-hash",
-            role="admin"
+            **user_data
         )
         db.add(user)
         db.commit()
