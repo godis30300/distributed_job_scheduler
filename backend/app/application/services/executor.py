@@ -155,10 +155,10 @@ async def execute_api_poll(payload: dict[str, Any], timeout_seconds: int) -> Exe
 
 async def execute_job(action_type: str, payload: dict[str, Any], timeout_seconds: int) -> ExecutionResult:
     # 1. Define internal static executors for consistency
-    async def exec_report(*args): return ExecutionResult(success=True, stdout="daily report generated", stderr="")
-    async def exec_email(*args): return ExecutionResult(success=True, stdout="email sent", stderr="")
-    async def exec_backup(*args): return ExecutionResult(success=True, stdout="database backup completed", stderr="")
-    async def exec_fail_test(*args): return ExecutionResult(success=False, stdout="", stderr="intentional failure for retry test")
+    def exec_report(*args): return ExecutionResult(success=True, stdout="daily report generated", stderr="")
+    def exec_email(*args): return ExecutionResult(success=True, stdout="email sent", stderr="")
+    def exec_backup(*args): return ExecutionResult(success=True, stdout="database backup completed", stderr="")
+    def exec_fail_test(*args): return ExecutionResult(success=False, stdout="", stderr="intentional failure for retry test")
     async def exec_long_task(*args): 
         await asyncio.sleep(min(timeout_seconds, 2))
         return ExecutionResult(success=True, stdout="long task completed", stderr="")
@@ -179,6 +179,9 @@ async def execute_job(action_type: str, payload: dict[str, Any], timeout_seconds
     # 3. Execution Logic
     executor = ACTION_MAP.get(action_type)
     if executor:
-        return await executor(payload, timeout_seconds)
+        # Check if it is a coroutine function or a regular function
+        if asyncio.iscoroutinefunction(executor):
+            return await executor(payload, timeout_seconds)
+        return executor(payload, timeout_seconds)
     
     return ExecutionResult(success=False, stdout="", stderr=f"unsupported action_type: {action_type}")

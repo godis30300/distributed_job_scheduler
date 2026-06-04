@@ -8,10 +8,7 @@ from app.domain.exceptions import EntityNotFoundError
 
 def get_pending_jobs(db: Session, limit: int = 50) -> list[JobRun]:
     repo = JobRunRepository(db)
-    # We use a custom query since it involves a join with Job enabled status
-    return repo.find_next_run_to_lock() # find_next_run_to_lock actually returns one, but for compatibility:
-    # Let's adjust JobRunRepository to have a more generic method or just use raw query here if it's very specific.
-    # For now, keep it simple:
+    # Correct the logic to return a list of pending jobs
     return repo.db.query(JobRun).filter(JobRun.status == "pending").limit(limit).all()
 
 

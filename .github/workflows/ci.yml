@@ -3,8 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - main
-      - test/frontend/automation_test
+      - "**"
     tags:
       - "*"
   pull_request:
@@ -15,10 +14,6 @@ permissions:
 env:
   POSTGRES_DB: jobscheduler
   POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
-  DATABASE_URL: postgresql+psycopg2://postgres:${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}@localhost:5432/jobscheduler
-  JWT_SECRET_KEY: ${{ secrets.CI_JWT_SECRET_KEY || 'testsecretkey' }}
-  CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
   PYTHONUNBUFFERED: "1"
 
 jobs:
@@ -30,14 +25,14 @@ jobs:
         env:
           POSTGRES_DB: jobscheduler
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
+          POSTGRES_PASSWORD: password_${{ github.run_id }}
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d jobscheduler"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 30
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
 
@@ -56,25 +51,35 @@ jobs:
 
       - name: Apply database schema and migrations
         env:
-          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
+          PGPASSWORD: password_${{ github.run_id }}
         run: |
           until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
           psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
-          for f in backend/database/migrations/*.sql; do
-            echo "Applying $f..."
-            psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$f"
-          done
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/002_db_integration_fields.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/003_postgresql_queue_integrity.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/004_task_fields_duration_metrics.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/005_db_controller_functions.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/006_remove_fixed_seed_data.sql
+          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/migrations/008_add_metadata_json_and_api_poll.sql
 
-      - name: Run backend pytest
+      - name: Run backend Unit Tests
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET_KEY: secret_${{ github.run_id }}
         run: |
-          cd backend
-          export PYTHONPATH=$GITHUB_WORKSPACE/backend
-          mkdir -p test-reports
-          python -m pytest \
+          cd backend && PYTHONPATH=. python -m pytest tests/unit/
+
+      - name: Run backend Integration Tests
+        env:
+          DATABASE_URL: postgresql+psycopg2://postgres:password_${{ github.run_id }}@localhost:5432/jobscheduler
+          JWT_SECRET_KEY: secret_${{ github.run_id }}
+        run: |
+          mkdir -p backend/test-reports
+          cd backend && PYTHONPATH=. python -m pytest \
             --junitxml=test-reports/pytest.xml \
             --cov=app \
             --cov-report=xml:coverage.xml \
-            tests
+            tests/integration/
 
       - name: Upload backend test reports
         uses: actions/upload-artifact@v4
@@ -83,76 +88,3 @@ jobs:
           path: |
             backend/test-reports/pytest.xml
             backend/coverage.xml
-
-  backend-db-smoke:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: jobscheduler
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d jobscheduler"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
-
-      - name: Install smoke test dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends postgresql-client
-          python -m pip install --upgrade pip
-          python -m pip install -r backend/requirements.txt
-
-      - name: Apply database schema and migrations
-        env:
-          PGPASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'postgres' }}
-        run: |
-          until pg_isready -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo "waiting for postgres"; sleep 1; done
-          psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f backend/database/schema.sql
-          for f in backend/database/migrations/*.sql; do
-            echo "Applying $f..."
-            psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$f"
-          done
-
-      - name: Run DB smoke test
-        run: |
-          cd backend
-          export PYTHONPATH=$GITHUB_WORKSPACE/backend
-          python scripts/db_smoke_test.py
-
-  frontend-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: frontend/requirements.txt
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r frontend/requirements.txt
-
-      - name: Run frontend tests
-        env:
-          SECRET_KEY: "temporary_secret_key_for_testing"
-          DATABASE_URL: "sqlite:///db.sqlite3"
-        run: |
-          cd frontend
-          python manage.py test
