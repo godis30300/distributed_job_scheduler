@@ -42,6 +42,8 @@ class JobBase(BaseModel):
         # Handle 'action_type' vs 'action'
         if "action_type" in normalized and "action" not in normalized:
             normalized["action"] = normalized["action_type"]
+        if "task_type" in normalized and "action" not in normalized:
+            normalized["action"] = normalized["task_type"]
         
         # Normalize action names
         if normalized.get("action") == "python_script":
@@ -88,11 +90,14 @@ class JobUpdate(BaseModel):
     cron_expression: Optional[str] = None
     interval_seconds: Optional[int] = None
     action: Optional[str] = None
+    task_type: Optional[str] = None
     api_method: Optional[str] = None
     api_url: Optional[str] = None
     working_dir: Optional[str] = None
     shell_script: Optional[str] = None
     script_content: Optional[str] = None
+    script: Optional[str] = None
+    action_payload: Optional[dict[str, Any]] = None
     timeout_seconds: Optional[int] = None
     retry_limit: Optional[int] = None
     depends_on: Optional[list[str]] = None
@@ -101,7 +106,9 @@ class JobResponse(BaseModel):
     id: str
     user: str
     created_by: Optional[str] = None
+    name: Optional[str] = None
     task_name: Optional[str] = None
+    task_type: Optional[str] = None
     action: Optional[str] = None
     action_type: Optional[str] = None
     action_payload: dict[str, Any]
@@ -140,7 +147,9 @@ class JobResponse(BaseModel):
                 "id": str(data.id),
                 "user": getattr(data.user, "username", "unknown") if hasattr(data, "user") else "unknown",
                 "created_by": getattr(data.user, "username", "unknown") if hasattr(data, "user") else "unknown",
+                "name": data.name,
                 "task_name": data.task_name,
+                "task_type": data.task_type,
                 "action": data.action_type,
                 "action_type": data.action_type,
                 "action_payload": data.action_payload,

@@ -143,7 +143,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_due_schedule
     WHERE enabled = TRUE AND status IN (const_enabled(), const_active()) AND next_run_at IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_job_runs_status_created_at ON job_runs(status, created_at);
-CREATE INDEX IF NOT EXISTS idx_job_runs_pending_queue ON job_runs(created_at) WHERE status = const_pending()::job_run_status;
+CREATE INDEX IF NOT EXISTS idx_job_runs_pending_queue ON job_runs(created_at) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_job_runs_job_id ON job_runs(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_runs_job_status_created_at ON job_runs(job_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_runs_user_id ON job_runs(user_id);
@@ -153,7 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_job_runs_locked_until ON job_runs(locked_until);
 CREATE INDEX IF NOT EXISTS idx_job_runs_task_type_created_at ON job_runs(task_type, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_runs_running_locks
     ON job_runs(locked_until)
-    WHERE status = const_running()::job_run_status AND locked_until IS NOT NULL;
+    WHERE status = 'running' AND locked_until IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_job_logs_run_created_at ON job_logs(job_run_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_job_logs_level_created_at ON job_logs(log_level, created_at);
@@ -513,7 +513,7 @@ BEGIN
         jr.id,
         j.id,
         j.task_name,
-        jr.status::text,
+        jr.status::VARCHAR,
         jl.log_level,
         jl.stream,
         jl.message,

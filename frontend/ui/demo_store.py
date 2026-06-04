@@ -50,7 +50,7 @@ def ensure_demo_data(request):
 
 
 def demo_login(request, username):
-    request.session['token'] = 'demo-token'
+    request.session['token'] = f"demo-{uuid4()}"
     request.session['username'] = username
     ensure_demo_data(request)
 

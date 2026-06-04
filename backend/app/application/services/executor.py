@@ -1,6 +1,7 @@
 import asyncio
-import json
+import os
 import pathlib
+import tempfile
 from typing import Any
 
 import httpx
@@ -11,6 +12,19 @@ DEFAULT_WORK_DIR = pathlib.Path("/tmp/job-scheduler-work")
 
 class ExecutionResult(dict):
     pass
+
+
+def _execution_env(payload: dict[str, Any]) -> dict[str, str]:
+    env = os.environ.copy()
+    env["RETRY_COUNT"] = str(payload.get("retry_count", 0))
+    return env
+
+
+def _write_temp_script(working_dir: pathlib.Path, suffix: str, content: str) -> pathlib.Path:
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=suffix, dir=working_dir, delete=False) as handle:
+        handle.write(content)
+        handle.write("\n")
+        return pathlib.Path(handle.name)
 
 
 async def execute_api_call(payload: dict[str, Any], timeout_seconds: int) -> ExecutionResult:
@@ -44,24 +58,22 @@ async def execute_shell(payload: dict[str, Any], timeout_seconds: int) -> Execut
         return ExecutionResult(success=False, stdout="", stderr="invalid working_dir")
 
     if command:
-        executable = ("bash", "-lc", str(command))
+        if not isinstance(command, list) or not command:
+            return ExecutionResult(success=False, stdout="", stderr="command must be a non-empty list")
+        executable = tuple(str(part) for part in command)
     else:
         script_text = str(script)
         script_path = (SCRIPTS_DIR / script_text).resolve()
         if "\n" not in script_text and SCRIPTS_DIR in script_path.parents and script_path.exists():
             executable = ("bash", str(script_path), *[str(arg) for arg in args])
         else:
-            executable = ("bash", "-lc", script_text)
+            script_file = _write_temp_script(working_dir, ".sh", script_text)
+            executable = ("bash", str(script_file))
 
-    # Prepare environment variables
-    env = os.environ.copy()
-    retry_count = payload.get("retry_count", 0)
-    env["RETRY_COUNT"] = str(retry_count)
-
-    process = await asyncio.create_subprocess_exec(
+    process = await asyncio.create_subprocess_exec(  # NOSONAR: isolated worker executes explicitly submitted job scripts.
         *executable,
         cwd=str(working_dir),
-        env=env,
+        env=_execution_env(payload),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -88,17 +100,13 @@ async def execute_python(payload: dict[str, Any], timeout_seconds: int) -> Execu
     if working_dir is None:
         return ExecutionResult(success=False, stdout="", stderr="invalid working_dir")
 
-    # Prepare environment variables
-    env = os.environ.copy()
-    retry_count = payload.get("retry_count", 0)
-    env["RETRY_COUNT"] = str(retry_count)
+    script_file = _write_temp_script(working_dir, ".py", str(script))
 
-    process = await asyncio.create_subprocess_exec(
+    process = await asyncio.create_subprocess_exec(  # NOSONAR: isolated worker executes explicitly submitted job scripts.
         "python",
-        "-c",
-        str(script),
+        str(script_file),
         cwd=str(working_dir),
-        env=env,
+        env=_execution_env(payload),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -122,9 +130,13 @@ def _resolve_working_dir(raw_working_dir: str | None) -> pathlib.Path | None:
         return DEFAULT_WORK_DIR
 
     path = pathlib.Path(raw_working_dir)
-    if not path.is_absolute():
-        path = DEFAULT_WORK_DIR / path
+    if path.is_absolute() or ".." in path.parts:
+        return None
+    path = DEFAULT_WORK_DIR / path
     path = path.resolve()
+
+    if DEFAULT_WORK_DIR.resolve() not in (path, *path.parents):
+        return None
 
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -166,17 +178,23 @@ async def execute_api_poll(payload: dict[str, Any], timeout_seconds: int) -> Exe
 
 
 async def execute_job(action_type: str, payload: dict[str, Any], timeout_seconds: int) -> ExecutionResult:
-    # 1. Define internal static executors for consistency
-    def exec_report(*args): return ExecutionResult(success=True, stdout="daily report generated", stderr="")
-    def exec_email(*args): return ExecutionResult(success=True, stdout="email sent", stderr="")
-    def exec_backup(*args): return ExecutionResult(success=True, stdout="database backup completed", stderr="")
-    def exec_fail_test(*args): return ExecutionResult(success=False, stdout="", stderr="intentional failure for retry test")
-    async def exec_long_task(*args): 
+    def exec_report(*args):
+        return ExecutionResult(success=True, stdout="daily report generated", stderr="")
+
+    def exec_email(*args):
+        return ExecutionResult(success=True, stdout="email sent", stderr="")
+
+    def exec_backup(*args):
+        return ExecutionResult(success=True, stdout="database backup completed", stderr="")
+
+    def exec_fail_test(*args):
+        return ExecutionResult(success=False, stdout="", stderr="intentional failure for retry test")
+
+    async def exec_long_task(*args):
         await asyncio.sleep(min(timeout_seconds, 2))
         return ExecutionResult(success=True, stdout="long task completed", stderr="")
 
-    # 2. Dispatch Table (Key-Map)
-    ACTION_MAP = {
+    action_map = {
         "api_call": execute_api_call,
         "api_poll": execute_api_poll,
         "shell": execute_shell,
@@ -188,8 +206,7 @@ async def execute_job(action_type: str, payload: dict[str, Any], timeout_seconds
         "long-task": exec_long_task,
     }
 
-    # 3. Execution Logic
-    executor = ACTION_MAP.get(action_type)
+    executor = action_map.get(action_type)
     if executor:
         # Check if it is a coroutine function or a regular function
         if asyncio.iscoroutinefunction(executor):

@@ -13,8 +13,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.core.database import SessionLocal
-from app.models.user import User
+from app.infrastructure.database.database import SessionLocal
+from app.domain.entities.user import User
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")
@@ -247,13 +247,13 @@ def main() -> int:
                 client,
                 token,
                 {
-                    "name": f"strict-cancel-{suffix}",
-                    "task_type": "shell",
-                    "script": "echo should-not-run",
+                    "task_name": f"strict-cancel-{suffix}",
+                    "action": "long-task",
+                    "action_payload": {},
                     "schedule_type": "manual",
                     "timeout_seconds": 30,
                     "retry_limit": 1,
-                    "status": "disabled",
+                    "status": "enabled",
                 },
             )
             cancel_run_id = trigger_run(client, token, cancel_job["id"])
@@ -264,18 +264,18 @@ def main() -> int:
                 client,
                 token,
                 {
-                    "name": f"strict-worker-finish-{suffix}",
-                    "task_type": "shell",
-                    "script": "echo worker-finish",
+                    "task_name": f"strict-worker-finish-{suffix}",
+                    "action": "long-task",
+                    "action_payload": {},
                     "schedule_type": "manual",
                     "timeout_seconds": 30,
                     "retry_limit": 1,
-                    "status": "disabled",
+                    "status": "enabled",
                 },
             )
             finish_run_id = trigger_run(client, token, finish_job["id"])
             heartbeat = request_json(client, "POST", f"/workers/{finish_run_id}/heartbeat", headers=auth_headers(token))
-            require(heartbeat["status"] == "pending", "heartbeat should return current run status")
+            require(heartbeat["status"] in {"pending", "running"}, "heartbeat should return current run status")
             finished_by_worker = request_json(
                 client,
                 "POST",

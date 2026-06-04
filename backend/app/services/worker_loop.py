@@ -39,6 +39,7 @@ async def run_job_task(worker_id: str):
     """
     async with semaphore:
         db = SessionLocal()
+        run = None
         try:
             # 1. Dequeue / Lock
             run = dequeue_next_run(db, worker_id)
@@ -80,6 +81,8 @@ async def run_job_task(worker_id: str):
             )
         except Exception as exc:
             logger.error(f"error in task: {exc}")
+            if run is not None:
+                finish_run(db, run.id, "failed", str(exc))
         finally:
             db.close()
 
