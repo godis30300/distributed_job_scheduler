@@ -46,6 +46,16 @@ class JobRunService:
             run.status = status
             run.complete(now) # Use Rich Domain Model logic
             self.db.add(JobLog(job_run_id=run.id, log_level="info", stream="system", message=f"Run finished: {status}"))
+            
+            # Automatic Retry Logic
+            if status in ("failed", "timeout") and run.job:
+                if run.retry_count < run.job.max_retry:
+                    self.db.flush() # Ensure current run status is saved for the retry logic
+                    try:
+                        new_run = self.retry_run(run.id)
+                        self.db.add(JobLog(job_run_id=run.id, log_level="info", stream="system", message=f"Automatic retry triggered: {new_run.id}"))
+                    except Exception as e:
+                        self.db.add(JobLog(job_run_id=run.id, log_level="error", stream="system", message=f"Failed to trigger automatic retry: {e}"))
 
         if stdout is not None:
             run.stdout = stdout

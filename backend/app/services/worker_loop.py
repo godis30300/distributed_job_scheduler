@@ -28,6 +28,9 @@ def _prepare_payload(run, job):
         action_payload["script"] = run.script
     if run.working_dir is not None:
         action_payload["working_dir"] = run.working_dir
+    
+    # Add runtime context
+    action_payload["retry_count"] = run.retry_count
     return action_payload
 
 async def run_job_task(worker_id: str):

@@ -53,9 +53,15 @@ async def execute_shell(payload: dict[str, Any], timeout_seconds: int) -> Execut
         else:
             executable = ("bash", "-lc", script_text)
 
+    # Prepare environment variables
+    env = os.environ.copy()
+    retry_count = payload.get("retry_count", 0)
+    env["RETRY_COUNT"] = str(retry_count)
+
     process = await asyncio.create_subprocess_exec(
         *executable,
         cwd=str(working_dir),
+        env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -82,11 +88,17 @@ async def execute_python(payload: dict[str, Any], timeout_seconds: int) -> Execu
     if working_dir is None:
         return ExecutionResult(success=False, stdout="", stderr="invalid working_dir")
 
+    # Prepare environment variables
+    env = os.environ.copy()
+    retry_count = payload.get("retry_count", 0)
+    env["RETRY_COUNT"] = str(retry_count)
+
     process = await asyncio.create_subprocess_exec(
         "python",
         "-c",
         str(script),
         cwd=str(working_dir),
+        env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
