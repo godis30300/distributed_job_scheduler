@@ -6,9 +6,6 @@ RUN apt-get update && apt-get install -y dos2unix && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-ARG SECRET_KEY=build-time-secret-key
-ENV SECRET_KEY=${SECRET_KEY}
-
 WORKDIR /app
 
 COPY requirements.txt .
