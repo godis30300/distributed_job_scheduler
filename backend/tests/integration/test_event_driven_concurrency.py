@@ -50,11 +50,11 @@ async def background_worker():
     task = asyncio.create_task(worker_loop())
     yield worker_id
     stop_event.set()
-    task.cancel()
     try:
-        await task
-    except asyncio.CancelledError:
-        pass
+        await asyncio.wait_for(task, timeout=2)
+    except asyncio.TimeoutError:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
     if background_tasks:
         await asyncio.gather(*background_tasks, return_exceptions=True)
 
