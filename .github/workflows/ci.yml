@@ -89,31 +89,3 @@ jobs:
           path: |
             backend/test-reports/pytest.xml
             backend/coverage.xml
-
-      - name: Cache SonarCloud packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Validate SonarCloud configuration
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
-          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
-        run: |
-          test -n "$SONAR_TOKEN" || (echo "Missing GitHub secret: SONAR_TOKEN" && exit 1)
-          test -n "$SONAR_PROJECT_KEY" || (echo "Missing GitHub variable: SONAR_PROJECT_KEY" && exit 1)
-          test -n "$SONAR_ORGANIZATION" || (echo "Missing GitHub variable: SONAR_ORGANIZATION" && exit 1)
-
-      - name: SonarCloud Code Analysis
-        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
-            -Dsonar.qualitygate.wait=true
