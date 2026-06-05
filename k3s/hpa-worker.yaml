@@ -17,3 +17,14 @@ spec:
       target:
         type: Utilization
         averageUtilization: 70
+  - type: Object
+    object:
+      metric:
+        name: scheduler_queue_length
+      describedObject:
+        apiVersion: v1
+        kind: Service
+        name: backend
+      target:
+        type: Value
+        value: "5"
