@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: scheduler
 spec:
-  imagePullSecrets:
-  - name: registry-secret
   replicas: 1
   selector:
     matchLabels:
@@ -14,6 +12,8 @@ spec:
       labels:
         app: scheduler
     spec:
+      imagePullSecrets:
+      - name: registry-secret
       containers:
       - name: scheduler
         image: ctaihsnl/cloudfinal-backend:1.2.0
@@ -22,14 +22,18 @@ spec:
         envFrom:
         - secretRef:
             name: job-scheduler-secret
+        livenessProbe:
+          exec:
+            command: ["python", "-c", "import os; os.kill(1, 0)"]
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          failureThreshold: 3
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker
 spec:
-  imagePullSecrets:
-  - name: registry-secret
   replicas: 1
   selector:
     matchLabels:
@@ -39,6 +43,8 @@ spec:
       labels:
         app: worker
     spec:
+      imagePullSecrets:
+      - name: registry-secret
       containers:
       - name: worker
         image: ctaihsnl/cloudfinal-backend:1.2.0
@@ -50,3 +56,9 @@ spec:
         envFrom:
         - secretRef:
             name: job-scheduler-secret
+        livenessProbe:
+          exec:
+            command: ["python", "-c", "import os; os.kill(1, 0)"]
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          failureThreshold: 3
