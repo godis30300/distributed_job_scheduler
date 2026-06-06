@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - ci-backup-stable
       - test/frontend/automation_test
     tags:
       - "*"
