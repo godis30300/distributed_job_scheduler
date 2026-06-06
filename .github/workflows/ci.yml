@@ -112,4 +112,3 @@ jobs:
         run: |
           cd frontend
           python manage.py test
-
