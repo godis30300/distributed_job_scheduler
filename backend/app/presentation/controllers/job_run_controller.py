@@ -11,6 +11,22 @@ from app.domain.exceptions import EntityNotFoundError, BusinessRuleViolationErro
 from app.infrastructure.repositories.job_run_repository import JobRunRepository
 
 
+def _is_admin(user: User | None) -> bool:
+    return bool(user and user.role == "admin")
+
+
+def _visible_user_id(current_user: User | None, requested_user_id: str | None = None) -> str | None:
+    if current_user and not _is_admin(current_user):
+        return current_user.id
+    return requested_user_id
+
+
+def _ensure_run_access(run: JobRun, current_user: User | None) -> JobRun:
+    if current_user and not _is_admin(current_user) and run.user_id and run.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job run not found")
+    return run
+
+
 def list_job_runs(
     db: Session,
     status: str | None = None,
@@ -18,28 +34,30 @@ def list_job_runs(
     job_id: str | None = None,
     limit: int = 100,
     offset: int = 0,
+    current_user: User | None = None,
 ) -> list[JobRun]:
     repo = JobRunRepository(db)
     
     # We can use the generic list method
     filters = {}
     if status: filters["status"] = status
-    if user_id: filters["user_id"] = user_id
+    visible_user_id = _visible_user_id(current_user, user_id)
+    if visible_user_id: filters["user_id"] = visible_user_id
     if job_id: filters["job_id"] = job_id
     
     return repo.list(skip=offset, limit=limit, **filters)
 
 
-def get_job_run(db: Session, run_id: str) -> JobRun:
+def get_job_run(db: Session, run_id: str, current_user: User | None = None) -> JobRun:
     service = JobRunService(db)
     try:
-        return service.get_run(run_id)
+        return _ensure_run_access(service.get_run(run_id), current_user)
     except EntityNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-def get_run_or_404(db: Session, run_id: str) -> JobRun:
-    return get_job_run(db, run_id)
+def get_run_or_404(db: Session, run_id: str, current_user: User | None = None) -> JobRun:
+    return get_job_run(db, run_id, current_user)
 
 
 def create_job_run(
@@ -89,6 +107,7 @@ def update_job_run_status(
 def retry_job_run(db: Session, run_id: str, current_user: User | None = None) -> JobRun:
     service = JobRunService(db)
     try:
+        _ensure_run_access(service.get_run(run_id), current_user)
         return service.retry_run(run_id, current_user.id if current_user else None)
     except EntityNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -100,16 +119,19 @@ def retry_run(db: Session, run_id: str, current_user: User) -> JobRun:
     return retry_job_run(db, run_id, current_user)
 
 
-def cancel_job_run(db: Session, run_id: str) -> JobRun:
+def cancel_job_run(db: Session, run_id: str, current_user: User | None = None) -> JobRun:
     service = JobRunService(db)
     try:
+        _ensure_run_access(service.get_run(run_id), current_user)
         return service.update_status(run_id, "canceled")
-    except Exception as e:
+    except EntityNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BusinessRuleViolationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def cancel_run(db: Session, run_id: str) -> JobRun:
-    return cancel_job_run(db, run_id)
+def cancel_run(db: Session, run_id: str, current_user: User | None = None) -> JobRun:
+    return cancel_job_run(db, run_id, current_user)
 
 
 def save_job_log(
@@ -130,12 +152,13 @@ def save_job_log(
     return log
 
 
-def get_job_run_logs(db: Session, run_id: str) -> list[JobLog]:
+def get_job_run_logs(db: Session, run_id: str, current_user: User | None = None) -> list[JobLog]:
+    get_job_run(db, run_id, current_user)
     return db.query(JobLog).filter(JobLog.job_run_id == run_id).order_by(JobLog.created_at.asc()).all()
 
 
-def list_logs(db: Session, run_id: str) -> list[JobLog]:
-    return get_job_run_logs(db, run_id)
+def list_logs(db: Session, run_id: str, current_user: User | None = None) -> list[JobLog]:
+    return get_job_run_logs(db, run_id, current_user)
 
 
 def search_job_logs(
@@ -148,6 +171,7 @@ def search_job_logs(
     start_time_to: datetime | None = None,
     limit: int = 100,
     offset: int = 0,
+    current_user: User | None = None,
 ) -> list[JobLog]:
     query = (
         db.query(JobLog)
@@ -159,8 +183,9 @@ def search_job_logs(
         query = query.filter(Job.task_name == task_name)
     if status:
         query = query.filter(JobRun.status == status)
-    if user_id:
-        query = query.filter(JobRun.user_id == user_id)
+    visible_user_id = _visible_user_id(current_user, user_id)
+    if visible_user_id:
+        query = query.filter(JobRun.user_id == visible_user_id)
     if log_level:
         query = query.filter(JobLog.log_level == log_level.lower())
     if start_time_from:

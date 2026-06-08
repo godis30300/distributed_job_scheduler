@@ -6,10 +6,26 @@ from app.domain.entities.job_run import JobRun
 from app.domain.entities.user import User
 from app.presentation.dtos.job_schema import JobCreate, JobUpdate
 from app.services.schedule_utils import resolve_schedule_rule
-from app.infrastructure.repositories.job_repository import JobRepository
 
 
 ACTIVE_JOB_STATUSES = ("enabled", "active")
+
+
+def _is_admin(user: User | None) -> bool:
+    return bool(user and user.role == "admin")
+
+
+def _job_query_for_user(db: Session, current_user: User | None):
+    query = db.query(Job)
+    if current_user and not _is_admin(current_user):
+        query = query.filter(Job.user_id == current_user.id)
+    return query
+
+
+def _ensure_job_access(job: Job, current_user: User | None) -> Job:
+    if current_user and not _is_admin(current_user) and job.user_id and job.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
 def create_job(db: Session, payload: JobCreate, current_user: User) -> Job:
@@ -21,15 +37,14 @@ def create_job(db: Session, payload: JobCreate, current_user: User) -> Job:
         raise HTTPException(status_code=409, detail=str(e))
 
 
-def list_jobs(db: Session, status: str | None = None, keyword: str | None = None) -> list[Job]:
-    repo = JobRepository(db)
-    
-    # We can still use raw query for complex ilike if BaseRepository doesn't support it yet
-    # but let's see if we can use repo.list
-    if not status and not keyword:
-        return repo.list()
-        
-    query = db.query(Job)
+def list_jobs(
+    db: Session,
+    current_user: User | None = None,
+    status: str | None = None,
+    keyword: str | None = None,
+) -> list[Job]:
+    query = _job_query_for_user(db, current_user)
+
     if status == "enabled":
         query = query.filter(Job.enabled.is_(True))
     elif status == "disabled":
@@ -45,16 +60,15 @@ def list_jobs(db: Session, status: str | None = None, keyword: str | None = None
     return query.order_by(Job.created_at.desc()).all()
 
 
-def get_job_or_404(db: Session, job_id: str) -> Job:
-    repo = JobRepository(db)
-    job = repo.get(job_id)
+def get_job_or_404(db: Session, job_id: str, current_user: User | None = None) -> Job:
+    job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return job
+    return _ensure_job_access(job, current_user)
 
 
-def update_job(db: Session, job_id: str, payload: JobUpdate) -> Job:
-    job = get_job_or_404(db, job_id)
+def update_job(db: Session, job_id: str, payload: JobUpdate, current_user: User | None = None) -> Job:
+    job = get_job_or_404(db, job_id, current_user)
     data = payload.model_dump(exclude_unset=True)
 
     # 1. Handle schedule updates using domain utility
@@ -105,16 +119,16 @@ def update_job(db: Session, job_id: str, payload: JobUpdate) -> Job:
     return job
 
 
-def delete_job(db: Session, job_id: str) -> dict:
-    job = get_job_or_404(db, job_id)
+def delete_job(db: Session, job_id: str, current_user: User | None = None) -> dict:
+    job = get_job_or_404(db, job_id, current_user)
     job.status = "deleted"
     job.sync_domain_logic()
     db.commit()
     return {"message": "job deleted"}
 
 
-def set_job_enabled(db: Session, job_id: str, enabled: bool) -> Job:
-    job = get_job_or_404(db, job_id)
+def set_job_enabled(db: Session, job_id: str, enabled: bool, current_user: User | None = None) -> Job:
+    job = get_job_or_404(db, job_id, current_user)
     job.status = "enabled" if enabled else "disabled"
     job.sync_domain_logic()
     db.commit()
@@ -123,7 +137,7 @@ def set_job_enabled(db: Session, job_id: str, enabled: bool) -> Job:
 
 
 def trigger_job(db: Session, job_id: str, current_user: User | None = None, trigger_type: str = "manual") -> JobRun:
-    job = get_job_or_404(db, job_id)
+    job = get_job_or_404(db, job_id, current_user)
 
     if trigger_type == "schedule" and not job.enabled:
         raise HTTPException(status_code=400, detail="無法執行已停用的任務。請先啟用該 Job。")

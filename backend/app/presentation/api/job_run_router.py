@@ -20,7 +20,7 @@ def list_job_runs(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     return job_run_controller.list_job_runs(
         db,
@@ -29,6 +29,7 @@ def list_job_runs(
         job_id=job_id,
         limit=limit,
         offset=offset,
+        current_user=current_user,
     )
 
 
@@ -43,7 +44,7 @@ def search_logs(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     return job_run_controller.search_job_logs(
         db,
@@ -55,6 +56,7 @@ def search_logs(
         start_time_to=start_time_to,
         limit=limit,
         offset=offset,
+        current_user=current_user,
     )
 
 
@@ -70,13 +72,21 @@ def clear_all_runs(db: Session = Depends(get_db), _: User = Depends(get_current_
 
 
 @router.get("/{run_id}", response_model=JobRunResponse)
-def get_job_run(run_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return job_run_controller.get_run_or_404(db, run_id)
+def get_job_run(
+    run_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return job_run_controller.get_run_or_404(db, run_id, current_user)
 
 
 @router.get("/{run_id}/logs", response_model=list[JobLogResponse])
-def get_logs(run_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return job_run_controller.list_logs(db, run_id)
+def get_logs(
+    run_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return job_run_controller.list_logs(db, run_id, current_user)
 
 
 @router.post("/{run_id}/retry", response_model=JobRunResponse)
@@ -89,5 +99,9 @@ def retry_run(
 
 
 @router.post("/{run_id}/cancel", response_model=JobRunResponse)
-def cancel_run(run_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return job_run_controller.cancel_run(db, run_id)
+def cancel_run(
+    run_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return job_run_controller.cancel_run(db, run_id, current_user)

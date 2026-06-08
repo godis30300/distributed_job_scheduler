@@ -24,14 +24,18 @@ def list_jobs(
     status: str | None = Query(default=None),
     keyword: str | None = Query(default=None),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return job_controller.list_jobs(db, status=status, keyword=keyword)
+    return job_controller.list_jobs(db, current_user=current_user, status=status, keyword=keyword)
 
 
 @router.get("/{job_id}", response_model=JobResponse)
-def get_job(job_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return job_controller.get_job_or_404(db, job_id)
+def get_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return job_controller.get_job_or_404(db, job_id, current_user)
 
 
 @router.put("/{job_id}", response_model=JobResponse)
@@ -39,24 +43,36 @@ def update_job(
     job_id: str,
     payload: JobUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return job_controller.update_job(db, job_id, payload)
+    return job_controller.update_job(db, job_id, payload, current_user)
 
 
 @router.delete("/{job_id}")
-def delete_job(job_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return job_controller.delete_job(db, job_id)
+def delete_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return job_controller.delete_job(db, job_id, current_user)
 
 
 @router.patch("/{job_id}/enable", response_model=JobResponse)
-def enable_job(job_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return job_controller.set_job_enabled(db, job_id, True)
+def enable_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return job_controller.set_job_enabled(db, job_id, True, current_user)
 
 
 @router.patch("/{job_id}/disable", response_model=JobResponse)
-def disable_job(job_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return job_controller.set_job_enabled(db, job_id, False)
+def disable_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return job_controller.set_job_enabled(db, job_id, False, current_user)
 
 
 def _trigger_job_response(job_id: str, db: Session, current_user: User) -> TriggerResponse:
