@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.domain.entities.job import Job
+from app.domain.entities.job_dependency import JobDependency
 from app.domain.entities.job_run import JobRun
 from app.domain.entities.user import User
 from app.presentation.dtos.job_schema import JobCreate, JobUpdate
@@ -147,8 +148,12 @@ def update_job(db: Session, job_id: str, payload: JobUpdate, current_user: User 
 
 def delete_job(db: Session, job_id: str, current_user: User | None = None) -> dict:
     job = get_job_or_404(db, job_id, current_user)
-    job.status = "deleted"
-    job.sync_domain_logic()
+    (
+        db.query(JobDependency)
+        .filter((JobDependency.job_id == job.id) | (JobDependency.depends_on_job_id == job.id))
+        .delete(synchronize_session=False)
+    )
+    db.delete(job)
     db.commit()
     return {"message": "job deleted"}
 

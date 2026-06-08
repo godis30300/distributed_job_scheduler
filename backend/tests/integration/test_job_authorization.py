@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.core.security import create_access_token
+from app.domain.entities.job import Job
 from app.domain.entities.user import User
 from app.main import app
 from app.presentation.controllers import job_controller, job_run_controller
@@ -87,6 +88,17 @@ def test_non_admin_cannot_access_or_mutate_other_users_job(db):
     _assert_404(lambda: job_controller.delete_job(db, other_job.id, owner))
     _assert_404(lambda: job_controller.set_job_enabled(db, other_job.id, False, owner))
     _assert_404(lambda: job_controller.trigger_job(db, other_job.id, owner))
+
+
+def test_owner_delete_removes_job_from_database(db):
+    owner = _create_user(db)
+    job = _create_job(db, owner, "delete_owned")
+
+    result = job_controller.delete_job(db, job.id, owner)
+
+    assert result == {"message": "job deleted"}
+    assert db.query(Job).filter(Job.id == job.id).first() is None
+    _assert_404(lambda: job_controller.get_job_or_404(db, job.id, owner))
 
 
 def test_admin_can_access_other_users_job(db):

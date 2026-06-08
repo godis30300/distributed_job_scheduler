@@ -316,8 +316,7 @@ def main() -> int:
                 require(metric_name in metrics, f"metrics must include {metric_name}")
 
             request_json(client, "DELETE", f"/jobs/{cancel_job['id']}", headers=auth_headers(token))
-            deleted_job = request_json(client, "GET", f"/jobs/{cancel_job['id']}", headers=auth_headers(token))
-            require(deleted_job["status"] == "deleted", "delete endpoint should soft-delete job")
+            request_json(client, "GET", f"/jobs/{cancel_job['id']}", expected_status=404, headers=auth_headers(token))
 
         print("\nSTRICT FULL SYSTEM TEST PASSED")
         return 0
