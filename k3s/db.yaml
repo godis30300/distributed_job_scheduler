@@ -543,8 +543,7 @@ data:
     -- Production seed file.
     --
     -- This project intentionally does not create default users, passwords, jobs,
-    -- job runs, logs, or dependencies here.
-    --
+    -- job runs, logs, or dependencies here.  
     -- Real accounts must be created through:
     --   POST /api/auth/register
     --
