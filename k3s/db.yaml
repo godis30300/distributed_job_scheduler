@@ -543,16 +543,7 @@ data:
     -- Production seed file.
     --
     -- This project intentionally does not create default users, passwords, jobs,
-    -- job runs, logs, or dependencies here.
-    INSERT INTO users (id, username, email, password_hash, role)
-    VALUES (
-        gen_random_uuid()::text,
-        'admin',
-        'admin@gmail.com',
-        '$2b$12$e0tRA3G6g8a8beM9oS3c1OB/nXor/Zfi8U22H4PV3ySauHeRKoNyW',
-        'admin'
-    )
-    ON CONFLICT (username) DO NOTHING;
+    -- job runs, logs, or dependencies here.  
     -- Real accounts must be created through:
     --   POST /api/auth/register
     --
