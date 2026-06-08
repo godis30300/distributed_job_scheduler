@@ -19,10 +19,15 @@ class JobRunService:
 
     def dequeue_next_run(self, worker_name: str, lock_seconds: int = 3600) -> JobRun | None:
         """Lock the next available pending job run using repository logic."""
-        run = self.repository.find_next_run_to_lock()
+        skipped_run_ids: set[str] = set()
+        while True:
+            run = self.repository.find_next_run_to_lock(skipped_run_ids)
+            if not run:
+                return None
+            if not run.job or run.job.are_dependencies_satisfied(self.db):
+                break
+            skipped_run_ids.add(run.id)
 
-        if not run:
-            return None
 
         now = datetime.now(timezone.utc)
         run.status = "running"

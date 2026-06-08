@@ -10,21 +10,21 @@ class JobRunRepository(BaseRepository[JobRun]):
     def __init__(self, db: Session):
         super().__init__(JobRun, db)
 
-    def find_next_run_to_lock(self) -> Optional[JobRun]:
+    def find_next_run_to_lock(self, excluded_run_ids: set[str] | None = None) -> Optional[JobRun]:
         """
         Implements the core queue logic using SKIP LOCKED.
         Only picks runs from enabled jobs.
         """
-        return (
+        query = (
             self.db.query(JobRun)
             .join(Job, Job.id == JobRun.job_id)
             .filter(JobRun.status == "pending")
             .filter(Job.enabled.is_(True))
             .filter(Job.status.in_(("enabled", "active")))
-            .order_by(JobRun.created_at.asc())
-            .with_for_update(skip_locked=True)
-            .first()
         )
+        if excluded_run_ids:
+            query = query.filter(JobRun.id.notin_(excluded_run_ids))
+        return query.order_by(JobRun.created_at.asc()).with_for_update(skip_locked=True).first()
 
     def get_active_runs(self, worker_id: Optional[str] = None) -> List[JobRun]:
         """Fetch all currently running jobs, optionally filtered by worker."""

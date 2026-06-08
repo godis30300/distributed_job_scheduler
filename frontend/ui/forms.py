@@ -50,6 +50,11 @@ class JobForm(forms.Form):
     timeout_seconds = forms.IntegerField(label='Timeout 秒數', min_value=1, initial=300)
     retry_limit = forms.IntegerField(label='Retry 次數', min_value=0, initial=3)
     
+    clear_dependencies = forms.BooleanField(
+        label='不相依任何 Job',
+        required=False,
+        help_text='勾選後會清空所有相依任務。',
+    )
     depends_on = forms.MultipleChoiceField(
         label='相依任務 (Depends On)',
         required=False,

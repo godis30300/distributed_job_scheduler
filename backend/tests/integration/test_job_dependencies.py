@@ -1,4 +1,3 @@
-import pytest
 from uuid import uuid4
 from datetime import timedelta
 from sqlalchemy.orm import Session
@@ -8,11 +7,11 @@ from app.domain.entities.job_run import JobRun
 from app.domain.entities.job_dependency import JobDependency
 from app.domain.entities.user import User
 from app.application.services.job_service import JobService
+from app.application.services.job_run_service import JobRunService
 from app.presentation.controllers.scheduler_controller import scan_due_jobs
 from app.presentation.controllers.job_controller import trigger_job
 from app.presentation.dtos.job_schema import JobCreate, JobUpdate
 from app.services.schedule_utils import utcnow
-from fastapi import HTTPException
 
 def test_job_dependency_blocks_execution(db: Session):
     # Clear existing data
@@ -117,18 +116,20 @@ def test_manual_trigger_respects_dependencies(db: Session, test_user):
     db.add(JobDependency(job_id=job_b.id, depends_on_job_id=job_a.id, required_status="success"))
     db.commit()
 
-    # Trigger B manually - should FAIL
-    with pytest.raises(HTTPException) as excinfo:
-        trigger_job(db, job_b.id, test_user)
-    assert excinfo.value.status_code == 400
+    # Trigger B manually - creates a pending run but worker must not execute it yet.
+    run_b = trigger_job(db, job_b.id, test_user)
+    assert run_b.job_id == job_b.id
+    assert run_b.status == "pending"
+    assert JobRunService(db).dequeue_next_run("dependency-worker") is None
 
     # Simulate A success
     db.add(JobRun(job_id=job_a.id, status="success", action_type="shell"))
     db.commit()
 
-    # Trigger B manually - should SUCCESS
-    run_b = trigger_job(db, job_b.id, test_user)
-    assert run_b.job_id == job_b.id
+    # Existing pending B run can execute after dependency success.
+    locked_run = JobRunService(db).dequeue_next_run("dependency-worker")
+    assert locked_run.id == run_b.id
+    assert locked_run.status == "running"
 
 def test_job_service_update_dependencies(db: Session, test_user):
     db.query(JobDependency).delete()

@@ -1,6 +1,8 @@
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 
+from .views import _prepare_job_payload
+
 @override_settings(DEMO_MODE=True)
 class FrontendTests(TestCase):
     def setUp(self):
@@ -123,3 +125,26 @@ class FrontendTests(TestCase):
             response = self.client.get(reverse(url_name))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.content.decode(), '')
+
+    def test_clear_dependencies_payload(self):
+        """Test if dependency clear option removes all selected dependencies."""
+        payload = _prepare_job_payload({
+            'task_name': 'downstream',
+            'description': '',
+            'status': 'enabled',
+            'action': 'shell',
+            'api_method': 'GET',
+            'api_url': '',
+            'working_dir': '',
+            'shell_script': 'echo ok',
+            'script_content': '',
+            'schedule_type': 'manual',
+            'cron_expression': '',
+            'interval_seconds': None,
+            'timeout_seconds': 300,
+            'retry_limit': 3,
+            'clear_dependencies': True,
+            'depends_on': ['upstream'],
+        })
+
+        self.assertEqual(payload['depends_on'], [])

@@ -173,10 +173,6 @@ def trigger_job(db: Session, job_id: str, current_user: User | None = None, trig
     if trigger_type == "schedule" and not job.enabled:
         raise HTTPException(status_code=400, detail="無法執行已停用的任務。請先啟用該 Job。")
     
-    # DDD: Respect dependencies even for manual triggers
-    if not job.are_dependencies_satisfied(db):
-        raise HTTPException(status_code=400, detail="無法執行任務：尚未滿足相依性任務的執行條件。")
-
     run = JobRun(
         job_id=job.id,
         user_id=current_user.id if current_user else job.user_id,

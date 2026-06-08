@@ -137,6 +137,7 @@ def job_list_partial_view(request):
 
 
 def _prepare_job_payload(data):
+    depends_on = [] if data.get('clear_dependencies') else data.get('depends_on', [])
     payload = {
         "task_name": data['task_name'],
         "description": data.get('description'),
@@ -152,7 +153,7 @@ def _prepare_job_payload(data):
         "interval_seconds": data.get('interval_seconds'),
         "timeout_seconds": data['timeout_seconds'],
         "retry_limit": data['retry_limit'],
-        "depends_on": data.get('depends_on', [])
+        "depends_on": depends_on
     }
     return payload
 
@@ -168,6 +169,7 @@ def _prepare_initial_data(job):
         'cron_expression': job.get('cron_expression'),
         'interval_seconds': job.get('interval_seconds'),
         'action': job.get('action'),
+        'clear_dependencies': False,
         'depends_on': job.get('depends_on', []),
     }
     

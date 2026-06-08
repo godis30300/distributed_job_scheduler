@@ -55,6 +55,8 @@
       {{ form.timeout_seconds.label_tag }} {{ form.timeout_seconds }}
       {{ form.retry_limit.label_tag }} {{ form.retry_limit }}
       
+      <label class="checkbox-row">{{ form.clear_dependencies }} <span>{{ form.clear_dependencies.label }}</span></label>
+      <small>{{ form.clear_dependencies.help_text }}</small>
       {{ form.depends_on.label_tag }} {{ form.depends_on }}
       <small>{{ form.depends_on.help_text }}</small>
     </div>
@@ -73,6 +75,8 @@
   .form label { display: block; margin-top: 12px; font-weight: 500; }
   .form input, .form select, .form textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
   .form small { color: #666; font-size: 12px; }
+  .form .checkbox-row { display: flex; align-items: center; gap: 8px; }
+  .form .checkbox-row input { width: auto; padding: 0; }
 
   /* Ace Editor Fixes */
   .ace_editor .ace_layer span {
@@ -103,6 +107,8 @@
     const scriptLabel = document.getElementById('script-content-label');
     const vimToggle = document.getElementById('vim-mode-toggle');
     const vimStatus = document.getElementById('vim-status');
+    const clearDependencies = document.querySelector('[name="clear_dependencies"]');
+    const dependsOn = document.querySelector('[name="depends_on"]');
     // Initialize Ace Editor
     const editor = ace.edit("editor");
     editor.setTheme("ace/theme/chrome");
@@ -165,9 +171,15 @@
       }
     }
 
+    function updateDependencyFields() {
+      dependsOn.disabled = clearDependencies.checked;
+    }
+
     scheduleType.addEventListener('change', updateFields);
     actionType.addEventListener('change', updateFields);
+    clearDependencies.addEventListener('change', updateDependencyFields);
     updateFields();
+    updateDependencyFields();
   });
   </script>
 {% endblock %}
