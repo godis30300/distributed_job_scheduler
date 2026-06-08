@@ -18,7 +18,7 @@
         {{ form.shell_script.label_tag }} {{ form.shell_script }}
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 5px;">
-          <label style="margin: 0;" id="script-content-label">腳本內容</label>
+          <span style="margin: 0; font-weight: 500;" id="script-content-label">腳本內容</span>
           <label style="font-size: 13px; font-weight: normal; cursor: pointer; user-select: none;">
             <input type="checkbox" id="vim-mode-toggle" style="width: auto; vertical-align: middle; margin-right: 5px;">
             Vim 操作模式
@@ -103,8 +103,6 @@
     const scriptLabel = document.getElementById('script-content-label');
     const vimToggle = document.getElementById('vim-mode-toggle');
     const vimStatus = document.getElementById('vim-status');
-    const jobForm = document.getElementById('job-form');
-
     // Initialize Ace Editor
     const editor = ace.edit("editor");
     editor.setTheme("ace/theme/chrome");

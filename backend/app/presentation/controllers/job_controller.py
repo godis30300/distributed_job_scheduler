@@ -67,51 +67,77 @@ def get_job_or_404(db: Session, job_id: str, current_user: User | None = None) -
     return _ensure_job_access(job, current_user)
 
 
+def _apply_field_aliases(job: Job, data: dict) -> None:
+    aliases = {
+        "action": "action_type",
+        "task_type": "task_type",
+        "retry_limit": "max_retry",
+    }
+    for source, target in aliases.items():
+        if source in data:
+            setattr(job, target, data[source])
+
+
+def _apply_direct_fields(job: Job, data: dict) -> None:
+    direct_fields = (
+        "name",
+        "task_name",
+        "script",
+        "working_dir",
+        "status",
+        "timeout_seconds",
+        "description",
+    )
+    for field in direct_fields:
+        if field in data:
+            setattr(job, field, data[field])
+
+
+def _payload_needs_rebuild(data: dict) -> bool:
+    payload_fields = ("api_method", "api_url", "shell_script", "script_content", "script", "working_dir")
+    return any(field in data for field in payload_fields)
+
+
+def _rebuild_action_payload(job: Job, data: dict) -> dict:
+    action_payload = dict(job.action_payload or {})
+    if job.action_type == "api_call":
+        if "api_method" in data:
+            action_payload["method"] = data["api_method"]
+        if "api_url" in data:
+            action_payload["url"] = data["api_url"]
+    elif job.action_type in ("shell", "python"):
+        script_val = data.get("script") or data.get("shell_script") or data.get("script_content")
+        if script_val:
+            action_payload["script"] = script_val
+            action_payload["content"] = script_val
+        if "working_dir" in data:
+            action_payload["working_dir"] = data["working_dir"]
+    return action_payload
+
+
+def _sync_action_payload(job: Job, data: dict) -> None:
+    if "action_payload" in data:
+        job.action_payload = data["action_payload"]
+    elif _payload_needs_rebuild(data):
+        job.action_payload = _rebuild_action_payload(job, data)
+
+
 def update_job(db: Session, job_id: str, payload: JobUpdate, current_user: User | None = None) -> Job:
     job = get_job_or_404(db, job_id, current_user)
     data = payload.model_dump(exclude_unset=True)
 
-    # 1. Handle schedule updates using domain utility
     if any(key in data for key in ("schedule_type", "cron_expression", "interval_seconds")):
         job.schedule_rule = resolve_schedule_rule(payload, job.schedule_rule)
 
-    # 2. Handle simple field updates
-    if "action" in data:
-        job.action_type = data["action"]
-    if "task_type" in data:
-        job.task_type = data["task_type"]
-    if "retry_limit" in data:
-        job.max_retry = data["retry_limit"]
-    
-    # 3. Direct updates
-    for key in ("name", "task_name", "script", "working_dir", "status", "timeout_seconds", "description"):
-        if key in data:
-            setattr(job, key, data[key])
-    
-    if "action_payload" in data:
-        job.action_payload = data["action_payload"]
-    else:
-        # Re-build action_payload if flat fields were updated but action_payload was not provided
-        if any(key in data for key in ("api_method", "api_url", "shell_script", "script_content", "script", "working_dir")):
-            ap = dict(job.action_payload)
-            if job.action_type == "api_call":
-                if "api_method" in data: ap["method"] = data["api_method"]
-                if "api_url" in data: ap["url"] = data["api_url"]
-            elif job.action_type in ("shell", "python"):
-                script_val = data.get("script") or data.get("shell_script") or data.get("script_content")
-                if script_val:
-                    ap["script"] = script_val
-                    ap["content"] = script_val
-                if "working_dir" in data: ap["working_dir"] = data["working_dir"]
-            job.action_payload = ap
+    _apply_field_aliases(job, data)
+    _apply_direct_fields(job, data)
+    _sync_action_payload(job, data)
 
-    # 4. Handle dependencies
     if "depends_on" in data:
         from app.application.services.job_service import JobService
         service = JobService(db)
         service.update_dependencies(job_id, data["depends_on"])
 
-    # 5. DDD: Re-sync state
     job.sync_domain_logic()
 
     db.commit()

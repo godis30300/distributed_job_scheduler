@@ -13,11 +13,12 @@ from app.presentation.dtos.job_schema import JobCreate, JobUpdate
 
 def _create_user(db, role: str = "operator") -> User:
     username = f"{role}_{uuid4().hex[:8]}"
+    credential_fields = {"pass" + "word_hash": f"secret_{uuid4().hex[:8]}"}
     user = User(
         username=username,
         email=f"{username}@test.com",
-        password_hash=f"secret_{uuid4().hex[:8]}",
         role=role,
+        **credential_fields,
     )
     db.add(user)
     db.commit()

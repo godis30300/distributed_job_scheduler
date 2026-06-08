@@ -68,12 +68,9 @@ def test_poller_completes_awaiting_job(db: Session, async_job):
 
     # 2. Simulate Poller checking status
     # Mock external status check
-    external_status = "completed" 
-    
-    if external_status == "completed":
-        run.status = "success"
-        run.finished_at = MagicMock() # Simplified for test
-        db.commit()
+    run.status = "success"
+    run.finished_at = MagicMock() # Simplified for test
+    db.commit()
 
     db.refresh(run)
     assert run.status == "success"

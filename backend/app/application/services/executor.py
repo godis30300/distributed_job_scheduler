@@ -70,7 +70,7 @@ async def execute_shell(payload: dict[str, Any], timeout_seconds: int) -> Execut
             script_file = _write_temp_script(working_dir, ".sh", script_text)
             executable = ("bash", str(script_file))
 
-    process = await asyncio.create_subprocess_exec(  # NOSONAR: isolated worker executes explicitly submitted job scripts.
+    process = await asyncio.create_subprocess_exec(  # NOSONAR
         *executable,
         cwd=str(working_dir),
         env=_execution_env(payload),
@@ -102,7 +102,7 @@ async def execute_python(payload: dict[str, Any], timeout_seconds: int) -> Execu
 
     script_file = _write_temp_script(working_dir, ".py", str(script))
 
-    process = await asyncio.create_subprocess_exec(  # NOSONAR: isolated worker executes explicitly submitted job scripts.
+    process = await asyncio.create_subprocess_exec(  # NOSONAR
         "python",
         str(script_file),
         cwd=str(working_dir),
