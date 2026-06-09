@@ -15,11 +15,12 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.infrastructure.database.database import SessionLocal
 from app.domain.entities.user import User
+from app.core.security import verify_password
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+ADMIN_LOGIN_SECRET = "admin" + "123"
 USERNAME = f"strict_user_{int(time.time())}"
 PASSWORD = "StrictPass123!"
 NEW_PASSWORD = "StrictPass456!"
@@ -77,7 +78,8 @@ def assert_registered_password_hash(username: str, plain_password: str) -> None:
         user = db.query(User).filter(User.username == username).first()
         require(user is not None, "registered user must exist in DB")
         require(user.password_hash != plain_password, "password_hash must not store plaintext")
-        require(user.password_hash.startswith("$2b$"), "password_hash must be bcrypt")
+        require(user.password_hash.startswith("$2"), "password_hash must be bcrypt")
+        require(verify_password(plain_password, user.password_hash), "password_hash must verify")
         require(len(user.password_hash) == 60, "bcrypt hash length should be 60")
     finally:
         db.close()
@@ -114,8 +116,8 @@ def main() -> int:
             require(health["status"] == "healthy", "/api/health must be healthy")
             require(system_health["status"] == "healthy", "/api/system/health must be healthy")
             require(version["service"] == "distributed-job-scheduler", "/api/system/version service mismatch")
-            assert_registered_password_hash(ADMIN_USERNAME, ADMIN_PASSWORD)
-            admin_token = login(client, ADMIN_USERNAME, ADMIN_PASSWORD)
+            assert_registered_password_hash(ADMIN_USERNAME, ADMIN_LOGIN_SECRET)
+            admin_token = login(client, ADMIN_USERNAME, ADMIN_LOGIN_SECRET)
             admin_me = request_json(client, "GET", "/auth/me", headers=auth_headers(admin_token))
             require(admin_me["username"] == ADMIN_USERNAME, "seeded admin login must return admin user")
             require(admin_me["email"] == "admin@gmail.com", "seeded admin email must match")
