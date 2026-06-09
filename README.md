@@ -263,7 +263,7 @@ What the checks cover:
   queue locking, logs, duration fields, dependencies, and final row counts.
 - `api_scenario_test.py`: auth, health, shell/python jobs, legacy payloads,
   retry, run history, log search, dashboard, and metrics.
-- `strict_full_system_test.py`: no seeded account, bcrypt password hash,
+- `strict_full_system_test.py`: seeded admin login, bcrypt password hash,
   password change, job CRUD/update, execution output, retry, cancel, heartbeat,
   worker finish, scheduler, system endpoints, metrics, and soft delete.
 
@@ -300,8 +300,10 @@ The workflow:
 
 ## Notes
 
-- `backend/database/seed.sql` does not create default users. Register a user
-  through `/api/auth/register`.
+- `backend/database/seed.sql` creates a default admin user for first-time
+  login: `admin / admin123` with email `admin@gmail.com`. The password is
+  stored as a bcrypt hash. Users can still register through
+  `/api/auth/register`.
 - Disabled jobs cannot be manually triggered until they are enabled.
 - Fast job durations are stored in both milliseconds and decimal seconds.
 - Shell and Python jobs run inside the worker container, not on the host.

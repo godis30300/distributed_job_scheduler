@@ -7,8 +7,9 @@ UI log viewer, Docker Compose, and Kubernetes PostgreSQL deployment.
 ## Files
 
 - `schema.sql`: canonical schema for a fresh PostgreSQL database.
-- `seed.sql`: production seed placeholder. It intentionally creates no default
-  users, passwords, jobs, job runs, logs, or dependencies.
+- `seed.sql`: creates one default admin user for first-time login. The password
+  is stored as a bcrypt hash. It does not create default jobs, job runs, logs,
+  or dependencies.
 - `migrations/001_init.sql`: initial standalone initializer.
 - `migrations/002_db_integration_fields.sql`: legacy API/UI alignment.
 - `migrations/003_job_run_snapshots_and_indexes.sql`: queue snapshots, indexes,
@@ -125,6 +126,13 @@ docker compose up -d --build db backend worker frontend
 When the PostgreSQL volume is empty, Docker runs `schema.sql` and `seed.sql`
 from `/docker-entrypoint-initdb.d` automatically.
 
-`seed.sql` does not insert users. Real accounts are created through
-`POST /api/auth/register`, and the backend stores bcrypt hashes in
-`users.password_hash`.
+`seed.sql` inserts one default admin account:
+
+```text
+username: admin
+password: admin123
+email: admin@gmail.com
+```
+
+The password is stored in `users.password_hash` as a bcrypt hash, not plaintext.
+Additional real accounts can still be created through `POST /api/auth/register`.

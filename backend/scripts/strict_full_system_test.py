@@ -18,6 +18,8 @@ from app.domain.entities.user import User
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin123"
 USERNAME = f"strict_user_{int(time.time())}"
 PASSWORD = "StrictPass123!"
 NEW_PASSWORD = "StrictPass456!"
@@ -105,13 +107,19 @@ def main() -> int:
     try:
         suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         with httpx.Client() as client:
-            step("system health endpoints without seed account")
+            step("system health endpoints and seeded admin login")
             health = request_json(client, "GET", "/health")
             system_health = request_json(client, "GET", "/system/health")
             version = request_json(client, "GET", "/system/version")
             require(health["status"] == "healthy", "/api/health must be healthy")
             require(system_health["status"] == "healthy", "/api/system/health must be healthy")
             require(version["service"] == "distributed-job-scheduler", "/api/system/version service mismatch")
+            assert_registered_password_hash(ADMIN_USERNAME, ADMIN_PASSWORD)
+            admin_token = login(client, ADMIN_USERNAME, ADMIN_PASSWORD)
+            admin_me = request_json(client, "GET", "/auth/me", headers=auth_headers(admin_token))
+            require(admin_me["username"] == ADMIN_USERNAME, "seeded admin login must return admin user")
+            require(admin_me["email"] == "admin@gmail.com", "seeded admin email must match")
+            require(admin_me["role"] == "admin", "seeded admin role must be admin")
 
             step("real register/login/password hash flow")
             registered = request_json(

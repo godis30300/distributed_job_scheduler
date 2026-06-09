@@ -37,9 +37,10 @@ docker compose up -d --build db backend worker frontend
 
 ## 3. Verify Required DB Tables
 
-`seed.sql` intentionally creates no default users or jobs. Create real users
-through `POST /api/auth/register`; the backend stores bcrypt hashes in
-`users.password_hash`.
+`seed.sql` creates one default admin account for first-time login:
+`admin / admin123`, email `admin@gmail.com`. The password is stored in
+`users.password_hash` as a bcrypt hash, not plaintext. Additional users can
+still be created through `POST /api/auth/register`.
 
 ```powershell
 docker compose exec -T db psql -U postgres -d jobscheduler -c "\dt"
@@ -163,10 +164,10 @@ API SCENARIO TEST PASSED
 
 ## 9. Run Strict Full System Test
 
-This is the strict project-level test. It does not use seeded accounts or
-placeholder users. It creates a real account through `/api/auth/register`,
-logs in with JWT, verifies the DB bcrypt hash, changes the password, and then
-exercises the main backend/API scenarios.
+This is the strict project-level test. It verifies the seeded admin account,
+creates another real account through `/api/auth/register`, logs in with JWT,
+verifies the DB bcrypt hash, changes the password, and then exercises the main
+backend/API scenarios.
 
 ```powershell
 docker compose exec -T backend python scripts/strict_full_system_test.py
@@ -174,7 +175,7 @@ docker compose exec -T backend python scripts/strict_full_system_test.py
 
 The strict test checks:
 
-- no seeded account is required
+- seeded admin account can login
 - real register/login/JWT flow
 - `users.password_hash` is bcrypt and not plaintext
 - password change invalidates the old password

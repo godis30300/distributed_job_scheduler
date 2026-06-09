@@ -234,8 +234,7 @@ def create_smoke_job_and_run(db, user: User) -> tuple[Job, JobRun]:
         description="DB smoke test job; safe to delete",
     )
     db.add(job)
-    db.commit()
-    db.refresh(job)
+    db.flush()
 
     run = JobRun(
         job_id=job.id,
@@ -253,8 +252,7 @@ def create_smoke_job_and_run(db, user: User) -> tuple[Job, JobRun]:
         created_at=datetime(2000, 1, 1, tzinfo=timezone.utc),
     )
     db.add(run)
-    db.commit()
-    db.refresh(run)
+    db.flush()
     return job, run
 
 
@@ -268,7 +266,7 @@ def exercise_python_controllers(db, user: User) -> None:
 
     locked_run = lock_pending_job(db, SMOKE_WORKER_ID, lock_seconds=60)
     require(locked_run is not None, "expected one pending run to be locked")
-    require(locked_run.id == run.id, f"locked unexpected run: {locked_run.id}")
+    require(locked_run.id == run.id, f"expected smoke run {run.id} to be locked, got {locked_run.id}")
     require(locked_run.status == "running", "locked run should be running")
     require(locked_run.locked_by == SMOKE_WORKER_ID, "locked_by was not saved")
 
