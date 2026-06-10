@@ -71,7 +71,7 @@ class AdvancedJobSchedulerUser(HttpUser):
     @task(3)
     def stress_retry_success_jobs(self):
         """第一次失敗，重試後成功的工作"""
-        script = 'if [ "$RETRY_COUNT" = "0" ]; then echo "First attempt fail"; exit 1; else echo "Retry success"; exit 0; fi'
+        script = 'if [[ "$RETRY_COUNT" == "0" ]]; then echo "First attempt fail"; exit 1; else echo "Retry success"; exit 0; fi'
         self._create_and_run_job("retry-success", script, retry_limit=2)
 
     @tag('failure')
