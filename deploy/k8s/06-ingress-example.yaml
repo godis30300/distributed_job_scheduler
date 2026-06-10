@@ -15,6 +15,13 @@ spec:
                 name: backend
                 port:
                   number: 8000
+        - path: /locust
+            pathType: Prefix
+            backend:
+              service:
+                name: locust
+                port:
+                  number: 8089
           - path: /
             pathType: Prefix
             backend:
