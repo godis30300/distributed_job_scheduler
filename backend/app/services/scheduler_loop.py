@@ -1,6 +1,7 @@
 import time
 
 from app.presentation.controllers.scheduler_controller import scan_due_jobs
+from app.application.services.job_run_service import JobRunService
 from app.core.config import get_settings
 from app.infrastructure.database.database import SessionLocal, init_db
 from app.core.logger import logger
@@ -17,6 +18,10 @@ def main():
             result = scan_due_jobs(db)
             if result["created_runs"]:
                 logger.info(f"created runs: {result['run_ids']}")
+
+            released = JobRunService(db).release_expired_locks()
+            if released:
+                logger.warning(f"released expired locks: {released} run(s) requeued")
         except Exception as exc:
             logger.error(f"error: {exc}")
         finally:
