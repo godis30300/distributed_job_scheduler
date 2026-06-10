@@ -1,3 +1,4 @@
+import os
 import time
 import random
 import string
@@ -12,7 +13,7 @@ class AdvancedJobSchedulerUser(HttpUser):
     
     def on_start(self):
         self.username = f"stress_{random_string()}"
-        self.password = "password123"
+        self.password = os.getenv("LOCUST_TEST_PASSWORD", "DefaultTestPass123!")
         self.headers = {}
         self._authenticate()
 
