@@ -63,6 +63,13 @@ kubectl apply -f deploy/k8s/08-locust.yaml
 ```
 
 ### 3. 開啟測試控制台
+**Minikube 使用者 (推薦)**：
+使用 Minikube 內建的 Service 隧道，這最為穩定並會自動開啟瀏覽器：
+```bash
+minikube service locust -n job-scheduler
+```
+
+**通用 K8s 環境 (port-forward)**：
 ```bash
 kubectl port-forward svc/locust 8089:8089 -n job-scheduler
 ```
