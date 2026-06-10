@@ -70,9 +70,11 @@ class Job(Base):
     # Compatibility alias for existing API schemas/controllers.
     created_by = synonym("user_id")
 
-    def are_dependencies_satisfied(self, db_session) -> bool:
+    def are_dependencies_satisfied(self, db_session, since=None) -> bool:
         """
         DDD Domain Logic: Check if all upstream dependencies are satisfied.
+        since: when provided, only consider upstream runs created after this timestamp.
+               Used by the scheduler to ensure upstream jobs ran in the current cycle.
         """
         from app.domain.entities.job_dependency import JobDependency
         from app.domain.entities.job_run import JobRun
@@ -82,12 +84,13 @@ class Job(Base):
             return True
 
         for dep in deps:
-            latest_run = (
+            query = (
                 db_session.query(JobRun)
                 .filter(JobRun.job_id == dep.depends_on_job_id)
-                .order_by(JobRun.created_at.desc())
-                .first()
             )
+            if since is not None:
+                query = query.filter(JobRun.created_at > since)
+            latest_run = query.order_by(JobRun.created_at.desc()).first()
             if not latest_run:
                 return False
             if latest_run.status != dep.required_status:

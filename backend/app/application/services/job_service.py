@@ -63,12 +63,14 @@ class JobService:
             for dep_name in payload.depends_on:
                 dep_job = self.repository.find_by_task_name(dep_name)
                 if not dep_job:
-                    # Try by ID if not found by name
                     dep_job = self.repository.get(dep_name)
-                
+
                 if not dep_job:
                     raise ValueError(f"Dependency job '{dep_name}' not found")
-                
+
+                if self._would_create_cycle(job.id, dep_job.id):
+                    raise ValueError(f"Adding dependency '{dep_name}' would create a circular dependency")
+
                 dependency = JobDependency(
                     job_id=job.id,
                     depends_on_job_id=dep_job.id,
@@ -89,13 +91,28 @@ class JobService:
     def list_jobs(self) -> list[Job]:
         return self.repository.list()
 
+    def _would_create_cycle(self, job_id: str, new_dep_id: str) -> bool:
+        """Return True if making job_id depend on new_dep_id would form a cycle."""
+        visited: set[str] = set()
+        stack = [new_dep_id]
+        while stack:
+            current = stack.pop()
+            if current == job_id:
+                return True
+            if current in visited:
+                continue
+            visited.add(current)
+            upstream = self.db.query(JobDependency).filter(JobDependency.job_id == current).all()
+            stack.extend(d.depends_on_job_id for d in upstream)
+        return False
+
     def update_dependencies(self, job_id: str, depends_on_names: list[str]) -> None:
         """
         Reconcile job dependencies.
         """
         # 1. Clear existing dependencies
         self.db.query(JobDependency).filter(JobDependency.job_id == job_id).delete()
-        
+
         # 2. Add new ones
         if not depends_on_names:
             return
@@ -104,17 +121,20 @@ class JobService:
             dep_job = self.repository.find_by_task_name(dep_name)
             if not dep_job:
                 dep_job = self.repository.get(dep_name)
-            
+
             if not dep_job:
                 raise ValueError(f"Dependency job '{dep_name}' not found")
-            
+
+            if self._would_create_cycle(job_id, dep_job.id):
+                raise ValueError(f"Adding dependency '{dep_name}' would create a circular dependency")
+
             dependency = JobDependency(
                 job_id=job_id,
                 depends_on_job_id=dep_job.id,
                 required_status="success"
             )
             self.db.add(dependency)
-        
+
         self.db.flush()
 
     def scan_due_jobs(self) -> list[JobRun]:
@@ -132,7 +152,7 @@ class JobService:
 
         created_runs = []
         for job in due_jobs:
-            if not job.are_dependencies_satisfied(self.db):
+            if not job.are_dependencies_satisfied(self.db, since=job.last_run_at):
                 continue
 
             run = JobRun(
