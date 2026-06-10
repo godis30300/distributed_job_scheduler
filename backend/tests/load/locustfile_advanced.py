@@ -13,7 +13,10 @@ class AdvancedJobSchedulerUser(HttpUser):
     
     def on_start(self):
         self.username = f"stress_{random_string()}"
-        self.password = os.getenv("LOCUST_TEST_PASSWORD", "DefaultTestPass123!")
+        # 安全修正：移除硬編碼的預設密碼字串，改由環境變數讀取或動態生成
+        # 這能避免靜態掃描工具將其判定為 Hardcoded Secret
+        env_pass = os.getenv("LOCUST_TEST_PASSWORD")
+        self.password = env_pass if env_pass else f"Pass_{uuid.uuid4().hex}"
         self.headers = {}
         self._authenticate()
 
@@ -47,7 +50,6 @@ class AdvancedJobSchedulerUser(HttpUser):
             "retry_limit": retry_limit,
             "status": "enabled"
         }
-        
         with self.client.post("/api/jobs", json=payload, headers=self.headers, name=f"/jobs [create {name_prefix}]") as resp:
             if resp.status_code in [200, 201]:
                 jid = resp.json().get("id")
@@ -56,30 +58,25 @@ class AdvancedJobSchedulerUser(HttpUser):
     @tag('success')
     @task(5)
     def stress_success_jobs(self):
-        """正常工作的穩定壓力"""
         self._create_and_run_job("success", "echo 'quick success' && sleep 0.1")
 
     @tag('long')
     @task(3)
     def stress_long_running_jobs(self):
-        """長時間運行的工作 (10秒)"""
         self._create_and_run_job("long-run", "echo 'starting long job' && sleep 10 && echo 'finished'", timeout=30)
 
     @tag('retry')
     @task(3)
     def stress_retry_success_jobs(self):
-        """第一次失敗，重試後成功的工作"""
         script = 'if [[ "$RETRY_COUNT" == "0" ]]; then echo "First attempt fail"; exit 1; else echo "Retry success"; exit 0; fi'
         self._create_and_run_job("retry-success", script, retry_limit=2)
 
     @tag('failure')
     @task(2)
     def stress_permanent_failure(self):
-        """永久失敗的工作 (即便重試也失敗)"""
         self._create_and_run_job("perm-fail", "echo 'always fail'; exit 1", retry_limit=1)
 
     @task(5)
     def monitor_status(self):
-        """監控 Dashboard 壓力"""
         self.client.get("/api/dashboard/summary", headers=self.headers, name="/dashboard/summary")
         self.client.get("/api/job-runs?limit=20", headers=self.headers, name="/job-runs")

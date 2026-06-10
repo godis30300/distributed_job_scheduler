@@ -20,7 +20,8 @@ data:
         
         def on_start(self):
             self.username = f"stress_{random_string()}"
-            self.password = os.getenv("LOCUST_TEST_PASSWORD", "DefaultTestPass123!")
+            env_pass = os.getenv("LOCUST_TEST_PASSWORD")
+            self.password = env_pass if env_pass else f"Pass_{uuid.uuid4().hex}"
             self.headers = {}
             self._authenticate()
 
@@ -100,14 +101,23 @@ spec:
       labels:
         app: locust
     spec:
+      # 安全優化：不自動掛載 ServiceAccount Token，防止權限提昇攻擊
+      automountServiceAccountToken: false
       containers:
         - name: locust
           image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
-          # 使用環境變數動態注入 Host，預設為 http://backend:8000
           args: 
             - "locust -f /mnt/locust/locustfile_advanced.py --host ${LOCUST_TARGET_HOST:-http://backend:8000}"
+          # 維護性優化：明確定義資源限制，防止壓測過度消耗叢集資源
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
           ports:
             - containerPort: 8089
           envFrom:
