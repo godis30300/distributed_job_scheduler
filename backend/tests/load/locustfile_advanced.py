@@ -8,7 +8,7 @@ def random_string(length=8):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
 class AdvancedJobSchedulerUser(HttpUser):
-    wait_time = between(0.5, 2)  # 縮短等待時間以增加壓力
+    wait_time = between(0.5, 2)
     
     def on_start(self):
         self.username = f"stress_{random_string()}"
@@ -31,62 +31,60 @@ class AdvancedJobSchedulerUser(HttpUser):
                 token = resp.json().get("access_token")
                 self.headers = {"Authorization": f"Bearer {token}"}
 
-    def _create_and_run_job(self, name_prefix, script, timeout=60, working_dir="/tmp", expect_failure=False):
+    def _create_and_run_job(self, name_prefix, script, task_type="shell", timeout=60, retry_limit=1):
         name = f"{name_prefix}-{uuid.uuid4().hex[:8]}"
         payload = {
             "name": name,
-            "task_type": "shell",
+            "task_type": task_type,
             "script": script,
-            "description": "stress-test",
-            "working_dir": working_dir,
+            "description": f"stress-test-{name_prefix}",
+            "working_dir": "/tmp",
             "schedule_type": "manual",
             "timeout_seconds": timeout,
-            "retry_limit": 1,
+            "retry_limit": retry_limit,
             "status": "enabled"
         }
         
         with self.client.post("/api/jobs", json=payload, headers=self.headers, name=f"/jobs [create {name_prefix}]") as resp:
             if resp.status_code in [200, 201]:
                 jid = resp.json().get("id")
-                with self.client.post(f"/api/jobs/{jid}/run", headers=self.headers, name=f"/jobs/run [{name_prefix}]") as run_resp:
-                    if run_resp.status_code in [200, 201]:
-                        return run_resp.json().get("run_id")
-        return None
+                self.client.post(f"/api/jobs/{jid}/run", headers=self.headers, name=f"/jobs/run [{name_prefix}]")
 
     @tag('success')
-    @task(10)
+    @task(5)
     def stress_success_jobs(self):
         """正常工作的穩定壓力"""
-        self._create_and_run_job("success", "echo 'hello' && sleep 0.5")
+        self._create_and_run_job("success", "echo 'quick success' && sleep 0.1")
 
-    @tag('failure')
-    @task(5)
-    def stress_exit_failure(self):
-        """模擬腳本執行失敗 (exit 1)"""
-        self._create_and_run_job("fail-exit", "exit 1", expect_failure=True)
-
-    @tag('failure')
+    @tag('long')
     @task(3)
-    def stress_timeout_failure(self):
-        """模擬超時失敗"""
-        self._create_and_run_job("fail-timeout", "sleep 10", timeout=1, expect_failure=True)
+    def stress_long_running_jobs(self):
+        """長時間運行的工作 (10秒)"""
+        self._create_and_run_job("long-run", "echo 'starting long job' && sleep 10 && echo 'finished'", timeout=30)
+
+    @tag('retry')
+    @task(3)
+    def stress_retry_success_jobs(self):
+        """第一次失敗，重試後成功的工作"""
+        # 利用 RETRY_COUNT 環境變數，第一次 (0) exit 1, 重試 (1) exit 0
+        script = 'if [ "$RETRY_COUNT" = "0" ]; then echo "First attempt fail"; exit 1; else echo "Retry success"; exit 0; fi'
+        self._create_and_run_job("retry-success", script, retry_limit=2)
 
     @tag('failure')
     @task(2)
-    def stress_invalid_dir(self):
-        """模擬無效目錄失敗"""
-        self._create_and_run_job("fail-dir", "ls", working_dir="/non/existent/path", expect_failure=True)
+    def stress_permanent_failure(self):
+        """永久失敗的工作 (即便重試也失敗)"""
+        self._create_and_run_job("perm-fail", "echo 'always fail'; exit 1", retry_limit=1)
 
-    @tag('burst')
-    @task(1)
-    def burst_trigger(self):
-        """併發衝擊：一次觸發多個工作"""
-        for i in range(5):
-            self._create_and_run_job(f"burst-{i}", "echo 'burst'")
+    @tag('python')
+    @task(2)
+    def stress_python_jobs(self):
+        """Python 類型的任務"""
+        py_script = "import time\nprint('Python start')\ntime.sleep(0.5)\nprint('Python end')"
+        self._create_and_run_job("python-job", py_script, task_type="python")
 
     @task(5)
     def monitor_status(self):
-        """模擬用戶頻繁檢查狀態"""
+        """監控 Dashboard 壓力"""
         self.client.get("/api/dashboard/summary", headers=self.headers, name="/dashboard/summary")
         self.client.get("/api/job-runs?limit=20", headers=self.headers, name="/job-runs")
-        self.client.get("/api/metrics", name="/metrics")

@@ -16,6 +16,7 @@ spec:
       containers:
         - name: scheduler
           image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
+          imagePullPolicy: IfNotPresent
           command: ["python", "-m", "app.services.scheduler_loop"]
           envFrom:
             - secretRef:
@@ -41,6 +42,7 @@ spec:
       containers:
         - name: worker
           image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
+          imagePullPolicy: IfNotPresent
           command: ["python", "-m", "app.services.worker_loop"]
           env:
             - name: WORKER_ID
