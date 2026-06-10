@@ -1,12 +1,12 @@
 import time
-import random
+import secrets
 import string
 import uuid
 import os
 from locust import HttpUser, task, between, tag
 
 def random_string(length=8):
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+    return ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(length))
 
 class AdvancedJobSchedulerUser(HttpUser):
     wait_time = between(0.5, 2)
@@ -34,8 +34,6 @@ class AdvancedJobSchedulerUser(HttpUser):
 
     def _create_and_run_job(self, name_prefix, script, task_type="shell", timeout=60, retry_limit=1):
         name = f"{name_prefix}-{uuid.uuid4().hex[:8]}"
-        # 安全優化：為每個 Job 使用獨立的子目錄，避免直接在 /tmp 根目錄操作
-        # 這裡我們將 working_dir 設為相對路徑，讓執行器在受控的專案目錄下自動建立它
         safe_working_dir = f"locust-work-{uuid.uuid4().hex[:12]}"
         
         payload = {

@@ -6,14 +6,14 @@ metadata:
 data:
   locustfile_advanced.py: |
     import time
-    import random
+    import secrets
     import string
     import uuid
     import os
     from locust import HttpUser, task, between, tag
 
     def random_string(length=8):
-        return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+        return ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(length))
 
     class AdvancedJobSchedulerUser(HttpUser):
         wait_time = between(0.5, 2)
@@ -41,12 +41,14 @@ data:
 
         def _create_and_run_job(self, name_prefix, script, task_type="shell", timeout=60, retry_limit=1):
             name = f"{name_prefix}-{uuid.uuid4().hex[:8]}"
+            safe_working_dir = f"locust-work-{uuid.uuid4().hex[:12]}"
+            
             payload = {
                 "name": name,
                 "task_type": task_type,
                 "script": script,
                 "description": f"stress-test-{name_prefix}",
-                "working_dir": "/tmp",
+                "working_dir": safe_working_dir,
                 "schedule_type": "manual",
                 "timeout_seconds": timeout,
                 "retry_limit": retry_limit,

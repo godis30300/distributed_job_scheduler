@@ -1,19 +1,18 @@
 import time
-import random
+import secrets
 import string
 import os
 import uuid
 from locust import HttpUser, task, between
 
 def random_string(length=8):
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+    return ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(length))
 
 class JobSchedulerUser(HttpUser):
     wait_time = between(1, 3)
     
     def on_start(self):
         self.username = f"locust_{random_string()}"
-        # 安全修正：不使用硬編碼密碼
         self.password = os.getenv("LOCUST_TEST_PASSWORD", "DefaultTestPass123!")
         self.headers = {}
         self._authenticate()
@@ -45,7 +44,6 @@ class JobSchedulerUser(HttpUser):
     @task(1)
     def run_job(self):
         name = f"job-{random_string()}"
-        # 安全修正：使用唯一的相對路徑作為工作目錄，避開 /tmp 根目錄
         safe_work_dir = f"locust-basic-{uuid.uuid4().hex[:12]}"
         
         payload = {
