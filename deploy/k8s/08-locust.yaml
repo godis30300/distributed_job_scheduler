@@ -104,8 +104,10 @@ spec:
         - name: locust
           image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
           imagePullPolicy: IfNotPresent
-          command: ["locust"]
-          args: ["-f", "/mnt/locust/locustfile_advanced.py", "--host", "http://backend:8000"]
+          command: ["sh", "-c"]
+          # 使用環境變數動態注入 Host，預設為 http://backend:8000
+          args: 
+            - "locust -f /mnt/locust/locustfile_advanced.py --host ${LOCUST_TARGET_HOST:-http://backend:8000}"
           ports:
             - containerPort: 8089
           envFrom:
