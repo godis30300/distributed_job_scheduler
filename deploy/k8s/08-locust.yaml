@@ -20,8 +20,9 @@ data:
         
         def on_start(self):
             self.username = f"stress_{random_string()}"
-            env_pass = os.getenv("LOCUST_TEST_PASSWORD")
-            self.password = env_pass if env_pass else f"Pass_{uuid.uuid4().hex}"
+            self.password = os.getenv("LOCUST_TEST_PASSWORD")
+            if not self.password:
+                self.password = secrets.token_urlsafe(16)
             self.headers = {}
             self.created_job_ids = []
             self._authenticate()
@@ -110,7 +111,8 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: locust
-          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
+          # 修正：使用具體版本標籤而非 latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:1.0.0
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args: 
@@ -119,9 +121,12 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+              # 修正：增加臨時儲存限制
+              ephemeral-storage: "1Gi"
             requests:
               cpu: "200m"
               memory: "256Mi"
+              ephemeral-storage: "512Mi"
           ports:
             - containerPort: 8089
           envFrom:
