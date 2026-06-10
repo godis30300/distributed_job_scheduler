@@ -13,11 +13,10 @@ class AdvancedJobSchedulerUser(HttpUser):
     
     def on_start(self):
         self.username = f"stress_{random_string()}"
-        # 安全修正：移除硬編碼的預設密碼字串，改由環境變數讀取或動態生成
-        # 這能避免靜態掃描工具將其判定為 Hardcoded Secret
         env_pass = os.getenv("LOCUST_TEST_PASSWORD")
         self.password = env_pass if env_pass else f"Pass_{uuid.uuid4().hex}"
         self.headers = {}
+        self.created_job_ids = [] # 用於追蹤建立的 Job
         self._authenticate()
 
     def _authenticate(self):
@@ -53,7 +52,18 @@ class AdvancedJobSchedulerUser(HttpUser):
         with self.client.post("/api/jobs", json=payload, headers=self.headers, name=f"/jobs [create {name_prefix}]") as resp:
             if resp.status_code in [200, 201]:
                 jid = resp.json().get("id")
+                self.created_job_ids.append(jid) # 紀錄 ID 以便後續清理
                 self.client.post(f"/api/jobs/{jid}/run", headers=self.headers, name=f"/jobs/run [{name_prefix}]")
+
+    def on_stop(self):
+        """測試結束時的清理動作"""
+        if not self.created_job_ids:
+            return
+            
+        print(f"🧹 Cleaning up {len(self.created_job_ids)} jobs for user {self.username}...")
+        for jid in self.created_job_ids:
+            # 刪除 Job，系統通常會級聯刪除 (Cascade Delete) 相關的 Job Runs
+            self.client.delete(f"/api/jobs/{jid}", headers=self.headers, name="/jobs [cleanup]")
 
     @tag('success')
     @task(5)
