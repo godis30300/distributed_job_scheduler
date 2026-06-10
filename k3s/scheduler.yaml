@@ -52,7 +52,9 @@ spec:
         command: ["python", "-m", "app.services.worker_loop"]
         env:
         - name: WORKER_ID
-          value: "worker-k8s-1"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         envFrom:
         - secretRef:
             name: job-scheduler-secret
