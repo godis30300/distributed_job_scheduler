@@ -40,12 +40,12 @@
 如果您使用 Minikube，需要先將映像檔建置並載入叢集：
 ```bash
 # 建置資料庫 (包含 Schema 初始化腳本)
-docker build -t registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/db:latest ./backend/database
-minikube image load registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/db:latest
+docker build -t registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/db:1.0.0 ./backend/database
+minikube image load registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/db:1.0.0
 
 # 建置後端 (包含 Locust 測試工具)
-docker build -t registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest ./backend
-minikube image load registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:latest
+docker build -t registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:1.0.0 ./backend
+minikube image load registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:1.0.0
 ```
 
 ### 2. 部署測試組件

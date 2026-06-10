@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/db:latest
+          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/db:1.0.0
           imagePullPolicy: IfNotPresent
           env:
             - name: POSTGRES_DB
