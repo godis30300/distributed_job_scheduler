@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 echo "🚀 Starting Distributed Job Scheduler Load Test Environment..."
 
 # 檢查 .env 檔案
-if [ ! -f .env ]; then
+if [[ ! -f .env ]]; then
     echo "⚠️  .env file not found, creating from .env.example..."
     cp .env.example .env
 fi
