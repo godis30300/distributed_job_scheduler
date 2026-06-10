@@ -1,51 +1,60 @@
 import asyncio
-import time
 import httpx
-from sqlalchemy.orm import Session
+from datetime import timezone
 from app.infrastructure.database.database import SessionLocal, init_db
 from app.domain.entities.job_run import JobRun
 from app.presentation.controllers.queue_controller import finish_run
 from app.core.logger import logger
 from app.services.schedule_utils import utcnow
 
+def _is_timed_out(run: JobRun, now) -> bool:
+    reference = run.start_time or run.created_at
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=timezone.utc)
+    return (now - reference).total_seconds() > run.timeout_seconds
+
+
+async def _poll_external(db, run: JobRun) -> None:
+    external_id = (run.metadata_json or {}).get("external_id")
+    if not external_id:
+        logger.error(f"run {run.id} is awaiting_result but has no external_id")
+        return
+
+    status_url_template = (run.action_payload or {}).get("status_url")
+    if not status_url_template:
+        logger.error(f"run {run.id} missing status_url in payload")
+        return
+
+    status_url = status_url_template.format(external_id=external_id)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(status_url)
+        if response.status_code != 200:
+            return
+        ext_status = response.json().get("status", "").lower()
+        if ext_status in ("completed", "success", "done"):
+            logger.info(f"external job {external_id} completed, finishing run {run.id}")
+            finish_run(db, run.id, "success", None, stdout=response.text)
+        elif ext_status in ("failed", "error"):
+            logger.info(f"external job {external_id} failed, finishing run {run.id}")
+            finish_run(db, run.id, "failed", response.json().get("error", "External failure"), stderr=response.text)
+        # still running/pending → wait for next poll
+    except Exception as e:
+        logger.error(f"error polling status for run {run.id}: {e}")
+
+
 async def poll_awaiting_runs():
     db = SessionLocal()
     try:
-        # 1. Find all runs waiting for external results
         awaiting_runs = db.query(JobRun).filter(JobRun.status == "awaiting_result").all()
-        
+        now = utcnow()
         for run in awaiting_runs:
-            external_id = run.metadata_json.get("external_id")
-            if not external_id:
-                logger.error(f"Run {run.id} is awaiting_result but has no external_id")
-                continue
-            
-            # 2. Get status_url from payload
-            status_url_template = run.action_payload.get("status_url")
-            if not status_url_template:
-                logger.error(f"Run {run.id} missing status_url in payload")
-                continue
-            
-            status_url = status_url_template.format(external_id=external_id)
-            
-            # 3. Call external API to check status
-            try:
-                async with httpx.AsyncClient(timeout=10) as client:
-                    response = await client.get(status_url)
-                    if response.status_code == 200:
-                        data = response.json()
-                        ext_status = data.get("status", "").lower()
-                        
-                        if ext_status in ("completed", "success", "done"):
-                            logger.info(f"External job {external_id} completed. Finishing run {run.id}")
-                            finish_run(db, run.id, "success", None, stdout=response.text)
-                        elif ext_status in ("failed", "error"):
-                            logger.info(f"External job {external_id} failed. Finishing run {run.id}")
-                            finish_run(db, run.id, "failed", data.get("error", "External failure"), stderr=response.text)
-                        # If still 'running' or 'pending', we just leave it for the next poll
-            except Exception as e:
-                logger.error(f"Error polling status for run {run.id}: {e}")
-                
+            if _is_timed_out(run, now):
+                elapsed = (now - (run.start_time or run.created_at)).total_seconds()
+                logger.warning(f"run {run.id} awaiting_result timed out after {elapsed:.0f}s")
+                finish_run(db, run.id, "timeout", f"awaiting_result timed out after {elapsed:.0f}s")
+            else:
+                await _poll_external(db, run)
     finally:
         db.close()
 
