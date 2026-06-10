@@ -41,8 +41,8 @@ data:
         last_run_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        CONSTRAINT ck_jobs_action_type CHECK (action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
-        CONSTRAINT ck_jobs_task_type CHECK (task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+        CONSTRAINT ck_jobs_action_type CHECK (action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')),
+        CONSTRAINT ck_jobs_task_type CHECK (task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')),
         CONSTRAINT ck_jobs_status CHECK (status IN ('enabled', 'active', 'paused', 'disabled', 'deleted')),
         CONSTRAINT ck_jobs_timeout_positive CHECK (timeout_seconds > 0),
         CONSTRAINT ck_jobs_max_retry_nonnegative CHECK (max_retry >= 0)
@@ -74,13 +74,14 @@ data:
         stdout TEXT,
         stderr TEXT,
         error_message TEXT,
+        metadata_json JSONB,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        CONSTRAINT ck_job_runs_status CHECK (status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled')),
+        CONSTRAINT ck_job_runs_status CHECK (status IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled', 'awaiting_result')),
         CONSTRAINT ck_job_runs_trigger_type CHECK (trigger_type IN ('schedule', 'manual', 'api', 'retry', 'dependency')),
         CONSTRAINT ck_job_runs_retry_count_nonnegative CHECK (retry_count >= 0),
-        CONSTRAINT ck_job_runs_action_type CHECK (action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
-        CONSTRAINT ck_job_runs_task_type CHECK (task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task')),
+        CONSTRAINT ck_job_runs_action_type CHECK (action_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')),
+        CONSTRAINT ck_job_runs_task_type CHECK (task_type IS NULL OR task_type IN ('api_call', 'shell', 'python', 'report', 'email', 'backup', 'fail-test', 'long-task', 'api_poll')),
         CONSTRAINT ck_job_runs_timeout_positive CHECK (timeout_seconds > 0)
     );
 
@@ -363,7 +364,7 @@ data:
     DECLARE
         updated_run job_runs;
     BEGIN
-        IF p_status NOT IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled') THEN
+        IF p_status NOT IN ('pending', 'running', 'success', 'failed', 'timeout', 'canceled', 'awaiting_result') THEN
             RAISE EXCEPTION 'invalid job run status: %', p_status;
         END IF;
 
@@ -537,6 +538,26 @@ data:
         MAX(created_at) AS newest_created_at
     FROM job_runs
     GROUP BY status;
+
+    CREATE OR REPLACE FUNCTION fn_notify_job_run_update()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF (TG_OP = 'INSERT' AND NEW.status = 'pending') OR (TG_OP = 'UPDATE' AND OLD.status <> 'pending' AND NEW.status = 'pending') THEN
+            PERFORM pg_notify('job_run_events', json_build_object(
+                'event', 'new_pending_run',
+                'run_id', NEW.id,
+                'job_id', NEW.job_id
+            )::text);
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    DROP TRIGGER IF EXISTS trg_notify_job_run ON job_runs;
+    CREATE TRIGGER trg_notify_job_run
+    AFTER INSERT OR UPDATE ON job_runs
+    FOR EACH ROW
+    EXECUTE FUNCTION fn_notify_job_run_update();
 
 
   02-seed.sql: |
