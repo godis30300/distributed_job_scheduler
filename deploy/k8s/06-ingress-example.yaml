@@ -15,7 +15,7 @@ spec:
                 name: backend
                 port:
                   number: 8000
-        - path: /locust
+          - path: /locust
             pathType: Prefix
             backend:
               service:
