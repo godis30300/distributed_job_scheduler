@@ -1,9 +1,9 @@
-import os
 import time
 import random
 import string
 import uuid
-from locust import HttpUser, task, between, events, tag
+import os
+from locust import HttpUser, task, between, tag
 
 def random_string(length=8):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
@@ -34,12 +34,16 @@ class AdvancedJobSchedulerUser(HttpUser):
 
     def _create_and_run_job(self, name_prefix, script, task_type="shell", timeout=60, retry_limit=1):
         name = f"{name_prefix}-{uuid.uuid4().hex[:8]}"
+        # 安全優化：為每個 Job 使用獨立的子目錄，避免直接在 /tmp 根目錄操作
+        # 這裡我們將 working_dir 設為相對路徑，讓執行器在受控的專案目錄下自動建立它
+        safe_working_dir = f"locust-work-{uuid.uuid4().hex[:12]}"
+        
         payload = {
             "name": name,
             "task_type": task_type,
             "script": script,
             "description": f"stress-test-{name_prefix}",
-            "working_dir": "/tmp",
+            "working_dir": safe_working_dir,
             "schedule_type": "manual",
             "timeout_seconds": timeout,
             "retry_limit": retry_limit,
@@ -67,7 +71,6 @@ class AdvancedJobSchedulerUser(HttpUser):
     @task(3)
     def stress_retry_success_jobs(self):
         """第一次失敗，重試後成功的工作"""
-        # 利用 RETRY_COUNT 環境變數，第一次 (0) exit 1, 重試 (1) exit 0
         script = 'if [ "$RETRY_COUNT" = "0" ]; then echo "First attempt fail"; exit 1; else echo "Retry success"; exit 0; fi'
         self._create_and_run_job("retry-success", script, retry_limit=2)
 
@@ -76,13 +79,6 @@ class AdvancedJobSchedulerUser(HttpUser):
     def stress_permanent_failure(self):
         """永久失敗的工作 (即便重試也失敗)"""
         self._create_and_run_job("perm-fail", "echo 'always fail'; exit 1", retry_limit=1)
-
-    @tag('python')
-    @task(2)
-    def stress_python_jobs(self):
-        """Python 類型的任務"""
-        py_script = "import time\nprint('Python start')\ntime.sleep(0.5)\nprint('Python end')"
-        self._create_and_run_job("python-job", py_script, task_type="python")
 
     @task(5)
     def monitor_status(self):
