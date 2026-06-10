@@ -9,6 +9,7 @@ data:
     import random
     import string
     import uuid
+    import os
     from locust import HttpUser, task, between, tag
 
     def random_string(length=8):
@@ -19,7 +20,7 @@ data:
         
         def on_start(self):
             self.username = f"stress_{random_string()}"
-            self.password = "password123"
+            self.password = os.getenv("LOCUST_TEST_PASSWORD", "DefaultTestPass123!")
             self.headers = {}
             self._authenticate()
 
@@ -110,6 +111,13 @@ spec:
                 name: job-scheduler-secret
             - configMapRef:
                 name: job-scheduler-config
+          env:
+            - name: LOCUST_TEST_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: job-scheduler-secret
+                  key: LOCUST_TEST_PASSWORD
+                  optional: true
           volumeMounts:
             - name: locust-script-volume
               mountPath: /mnt/locust
