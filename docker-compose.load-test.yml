@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  locust:
+    build:
+      context: ./backend
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - LOCUST_TEST_PASSWORD=${LOCUST_TEST_PASSWORD}
+    command: locust -f /app/tests/load/locustfile_advanced.py --host http://backend:8000
+    ports:
+      - "8089:8089"
+    depends_on:
+      - backend
+      - worker
