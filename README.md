@@ -270,21 +270,130 @@ What the checks cover:
 
 ## Kubernetes
 
-Render manifests:
+Two deployment paths are provided:
+
+- `deploy/k8s/` + root `kustomization.yaml` — kustomize review/render.
+- `k3s/` + `k3s/deploy.sh` — opinionated, ordered deploy script for a live
+  k3s/k8s cluster. This is the recommended path and is documented below.
+
+### k3s manifests overview
+
+| File | Resources | Purpose |
+|---|---|---|
+| `db.yaml` | ConfigMap, PVC, **Secret**, Deployment, Service | PostgreSQL 16 + schema init SQL + `job-scheduler-secret` |
+| `backend.yaml` | Deployment, Service (NodePort `30080`) | FastAPI REST API on `:8000` |
+| `scheduler.yaml` | Deployment ×2 | `scheduler` (scheduler_loop) + `worker` (worker_loop) |
+| `frontend.yaml` | Deployment, Service (NodePort `30081`) | Django UI, runs `migrate` on boot, calls `http://backend:8000/api` |
+| `ingress.yaml` | Ingress (`default` ns) | `/api` → backend, everything else → frontend |
+| `grafana-ingress.yaml` | Ingress (`monitoring` ns) | `/grafana` → `prometheus-grafana:80` |
+| `hpa-backend.yaml` | HPA | backend CPU 70%, 1–5 replicas |
+| `hpa-scheduler.yaml` | HPA | scheduler CPU 70%, 1–3 replicas |
+| `hpa-worker.yaml` | HPA | worker CPU 70% + custom `scheduler_queue_length`, 1–10 replicas |
+
+### Required parameters / keys
+
+`deploy.sh` injects all secret values from environment variables — nothing
+secret is committed in the manifests. The `${...}` placeholders inside
+`db.yaml` are expanded at apply time with `envsubst`.
+
+| Env var | Required | Used by | Maps to |
+|---|---|---|---|
+| `POSTGRES_PASSWORD` | **yes** | `db`, `backend`, `scheduler`, `worker` | Postgres password + `DATABASE_URL` + `POSTGRES_PASSWORD` in `job-scheduler-secret` |
+| `JWT_SECRET_KEY` | **yes** | `backend`, `scheduler`, `worker` | `JWT_SECRET_KEY` in `job-scheduler-secret` |
+| `DJANGO_SECRET_KEY` | **yes** | `frontend` | `SECRET_KEY` in `frontend-secret` |
+| `DOCKERHUB_USER` | no | `scheduler`, `worker` | Creates `registry-secret` (only needed for private images) |
+| `DOCKERHUB_TOKEN` | no | `scheduler`, `worker` | Docker registry password/token |
+| `INGRESS_CLASS` | no | both Ingresses | Override `ingressClassName` (e.g. `traefik`) |
+
+Secrets the script creates for you:
+
+- **`job-scheduler-secret`** — from `db.yaml` after `envsubst`
+  (`DATABASE_URL`, `JWT_SECRET_KEY`, `POSTGRES_PASSWORD`, `PYTHONUNBUFFERED`).
+- **`frontend-secret`** — created imperatively from `DJANGO_SECRET_KEY`.
+  This secret is **not** in any manifest; without it the frontend pod fails.
+- **`registry-secret`** — optional, only created when `DOCKERHUB_*` are set.
+  The default images are public on Docker Hub, so a missing `registry-secret`
+  yields only a warning event, not a failure.
+
+### Cluster prerequisites
+
+| Capability | Needed for | Install |
+|---|---|---|
+| `kubectl` reachable cluster | everything | — |
+| `envsubst` (gettext) | secret expansion | `apt install gettext-base` |
+| ingress-nginx controller | `ingress.yaml`, `grafana-ingress.yaml` | k3s ships **Traefik**; install ingress-nginx or pass `INGRESS_CLASS=traefik` |
+| metrics-server | all HPAs (CPU) | `kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml` |
+| Prometheus Adapter | worker custom metric `scheduler_queue_length` | optional — without it, worker scales on CPU only |
+| kube-prometheus-stack | `grafana-ingress.yaml` target service | optional — provides `prometheus-grafana` in `monitoring` ns |
+
+`deploy.sh` warns (does not abort) when metrics-server or the `nginx`
+ingressClass is missing.
+
+### Deploy
 
 ```bash
-kubectl kustomize .
+cd k3s
+
+export POSTGRES_PASSWORD='change-me-postgres-password'
+export JWT_SECRET_KEY='change-me-jwt-secret'
+export DJANGO_SECRET_KEY='change-me-django-secret'
+
+# Optional:
+# export DOCKERHUB_USER='...'      # only for private registry
+# export DOCKERHUB_TOKEN='...'
+# export INGRESS_CLASS='traefik'   # default k3s ingress controller
+
+./deploy.sh
 ```
 
-Apply manifests:
+The script applies resources in dependency order, waiting for each rollout:
+
+1. `monitoring` namespace (created if absent).
+2. Secrets: `registry-secret` (optional), `frontend-secret`.
+3. `db` — applied via `envsubst`, then waits for `pg_isready`.
+4. `backend` — waits for rollout.
+5. `scheduler` + `worker`.
+6. `frontend`.
+7. `ingress.yaml` + `grafana-ingress.yaml`.
+8. HPAs.
+
+### Access
+
+NodePort (always available):
+
+- Backend API docs: `http://<node-ip>:30080/api/docs`
+- Frontend: `http://<node-ip>:30081`
+
+Through ingress (when a controller is installed):
+
+- `http://<ingress-host>/api` → backend
+- `http://<ingress-host>/` → frontend
+- `http://<ingress-host>/grafana` → Grafana (requires kube-prometheus-stack)
+
+The script prints the node IP and these URLs on completion.
+
+### Teardown
 
 ```bash
-kubectl apply -k .
+kubectl delete -f k3s/frontend.yaml -f k3s/scheduler.yaml -f k3s/backend.yaml
+kubectl delete -f k3s/ingress.yaml
+kubectl delete -f k3s/hpa-backend.yaml -f k3s/hpa-scheduler.yaml -f k3s/hpa-worker.yaml
+kubectl delete -f k3s/grafana-ingress.yaml
+kubectl delete secret frontend-secret registry-secret --ignore-not-found
+# db.yaml carries the Secret + PVC; delete the PVC too for a clean reset:
+kubectl delete -f k3s/db.yaml
+kubectl delete pvc db-pvc --ignore-not-found
 ```
 
-Before deploying, update image names and secrets for your registry and cluster.
-The generated resources include namespace, config maps, secrets, PostgreSQL,
-backend, frontend, scheduler, worker, services, ingress, and monitoring config.
+### kustomize path (review only)
+
+```bash
+kubectl kustomize .     # render deploy/k8s manifests
+kubectl apply -k .      # apply the kustomize set
+```
+
+Before using the kustomize path, update image names and secret values for your
+registry and cluster.
 
 ## CI
 
