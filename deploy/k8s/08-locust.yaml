@@ -110,9 +110,11 @@ spec:
         app: locust
     spec:
       automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: registry-secret
       containers:
         - name: locust
-          image: registry.git.hsnl.tw/native_cloud/distributed_job_scheduler/backend:1.0.0
+          image: ctaihsnl/cloudfinal-backend:PT
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args: 
@@ -154,9 +156,10 @@ metadata:
   name: locust
   namespace: job-scheduler
 spec:
+  type: NodePort
   selector:
     app: locust
   ports:
     - port: 8089
       targetPort: 8089
-  type: ClusterIP
+      nodePort: 30089
